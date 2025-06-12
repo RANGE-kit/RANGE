@@ -42,6 +42,8 @@ class GA_ABC():
         
         self.output_header = output_header
         self.output_directory = output_directory
+        
+        self.rng = np.random.default_rng()
 
     # Initial colony from random generation
     def _init_colony(self):
@@ -115,6 +117,8 @@ class GA_ABC():
     def run(self, print_interval=None):
         self._init_colony() 
         best_idx = np.argmin(self.y)
+        best_x = self.x[best_idx]
+        best_y = self.y[best_idx]
 
         # Keep all the results. Do we need it? The input x will be passed to calculator. 
         # It will be converted to XYZ before calculation. We can save/keep results there.
@@ -130,12 +134,13 @@ class GA_ABC():
                 pool_y = np.append( pool_y, [new_y], axis=0 )
 
             #  onlooker phase
-            fit = 1/np.exp(self.y/10)
-            probs = fit/fit.sum()
+            # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002             
             for k in range(self.colony_size):
-                i = np.random.choice(self.colony_size, p=probs)
-                new_x = self._neighbor_search(i)
-                new_y = self._greedy(i, new_x, self.output_header + f'{it}_ol_{k}_pick_{i}' )
+                idxs = np.random.choice(self.colony_size, size=4, replace=False) 
+                new_x = self.x[idxs[0]] + self.x[idxs[1]] - self.x[idxs[2]] - self.x[idxs[3]]
+                new_x = self.x[best_idx] + self.rng.random() * new_x
+                new_x = np.clip(new_x, self.bounds[:,0], self.bounds[:,1])
+                new_y = self._greedy(best_idx, new_x, self.output_header + f'{it}_ol_{k}_pick_{best_idx}' )
                 pool_x = np.append( pool_x, [new_x], axis=0 )
                 pool_y = np.append( pool_y, [new_y], axis=0 )
 
@@ -155,13 +160,19 @@ class GA_ABC():
                 pool_x = np.append( pool_x, new_x_ga, axis=0 )
                 pool_y = np.append( pool_y, new_y_ga, axis=0 )
 
-            #  keep the minimal
+            # This is the best value after this iteration
             if self.y.min() < self.y[best_idx]:
                 best_idx = self.y.argmin()
+                
+            # Update all-time minimum to this iteration minimum if needed.
+            # This may also be used for early termination in future.
+            if self.y[best_idx] < best_y:
+                best_x = self.x[best_idx]
+                best_y = self.y[best_idx]
 
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
-                    print(f"Iteration {it:6d} | best f = {self.y[best_idx]:.6g}")
-                    print( pool_y.shape )
+                    print(f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.6g} | best all-time y = {best_y:.6g}")
+                    print( "Total structures considered: " , pool_y.shape )
 
-        return self.x[best_idx], self.y[best_idx], pool_x, pool_y
+        return best_x, best_y, pool_x, pool_y
