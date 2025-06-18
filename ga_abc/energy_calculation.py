@@ -68,7 +68,8 @@ class energy_computation:
                 
             # Check if we have the face information from on_surface. If so, we have 3 surface info: face ID, factor 1 and 2 to look for points in plane
             # We also have the 3 rotation info to determine the orientation of molecule adsorbed on surface.
-            elif len(self.go_conversion_rule[i])>4: 
+            elif len(self.go_conversion_rule[i])>4:
+                t = vec[6*i : 6*i+6] 
                 face = self.go_conversion_rule[i][ 2+round(t[0]) ] # get the specific face info: 3 points + 1 surface adsorption normal point
                 adsorb_location = (face[1] - face[0])*t[1] +face[0]
                 adsorb_location += (face[2] - adsorb_location)*t[2]  + face[3]*t[3]
@@ -97,16 +98,22 @@ class energy_computation:
     def obj_func_compute_energy(self, vec, computing_id, save_output_directory):
         atoms = self.vector_to_cluster(vec)
         
+        # Each specific job folder
+        new_cumpute_directory = os.path.join(save_output_directory,computing_id)
+        os.makedirs( new_cumpute_directory, exist_ok=True)   
+        
         # To use ASE calculator
         if self.calculator_type == 'ase': 
+            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
             if self.geo_opt_para is not None:
                 try:
-                    dyn = BFGS(atoms)
-                    dyn.run(fmax=self.geo_opt_para['fmax'], steps=self.geo_opt_para['steps'])
-                    #traj = Trajectory( os.path.join(save_output_directory,'geoopt.traj'), 'w', atoms)
+                    dyn_log = os.path.join(new_cumpute_directory, 'opt.log') 
+                    dyn = BFGS(atoms, logfile=dyn_log ) 
+                    #traj = Trajectory( os.path.join(new_cumpute_directory, 'opt.traj'), 'w', atoms)
                     #dyn.attach(traj.write, interval=10)
+                    dyn.run( fmax=self.geo_opt_para['fmax'], steps=self.geo_opt_para['steps'] )
                     energy = atoms.get_potential_energy()
                 except:
                     energy = 1e6
@@ -115,9 +122,6 @@ class energy_computation:
                     energy = atoms.get_potential_energy()
                 except:
                     energy = 1e6
-                    
-            new_cumpute_directory = os.path.join(save_output_directory,computing_id)
-            os.makedirs( new_cumpute_directory, exist_ok=False)        
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
             np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')
                 

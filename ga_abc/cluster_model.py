@@ -135,9 +135,9 @@ class cluster_model:
                     substrate_mol = go_templates[ self.constraint_value[n][0] ] # Substrate must have more than 3 atoms
                     # rattle substrate to ensure 3d space is occupied for convex hull computation
                     for i in range(3):
-                        if np.sum(np.abs(substrate_mol.get_positions[:,i])) == 0: # We have a perfect surface (which is possible but rare)
+                        if np.sum(np.abs(substrate_mol.get_positions()[:,i])) == 0: # We have a perfect surface (which is possible but rare)
                             substrate_mol.rattle()
-                    hull = ConvexHull(substrate_mol.get_positions)
+                    hull = ConvexHull(substrate_mol.get_positions())
                 except:
                     raise ValueError('Substrate molecule cannot be found or hull surface cannot be defined')
                     
@@ -153,8 +153,8 @@ class cluster_model:
                 for i in range(number_of_faces):
                     point = substrate_mol.positions[hull.simplices[i]] # XYZ of three vertices in this face
                     surf_norm = hull.equations[i, :-1] # The surface normal direction
-                    surf_norm = correct_surface_normal(point[0], surf_norm, substrate_mol.get_positions) # Make sure norm points outside
-                    p = np.concatenate( (point, [ surf_norm ]) , axis=0 )
+                    surf_norm = correct_surface_normal(point[0], surf_norm, substrate_mol.get_positions()) # Make sure norm points outside
+                    p = np.concatenate( (point, [ surf_norm ]) , axis=0 ) # Add the three points and surface norm of every face
                     conversion_rule_para.append( tuple(p) )  
                 conversion_rule_para = tuple( conversion_rule_para ) # Length will be >2+3, depending on how many faces
                 

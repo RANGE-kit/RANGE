@@ -28,17 +28,16 @@ def project_points_onto_vector(points, vector):
     v_norm_sq = np.dot(v, v)
     if v_norm_sq == 0:
         raise ValueError("Vector must not be zero.")
-    points = np.array(points)
     dot_products = np.dot(points, v)
     projections = np.outer(dot_products / v_norm_sq, v)
     return projections
 
 def correct_surface_normal(one_surface_vertice, surf_normal, points):
     projected_points = project_points_onto_vector(points, surf_normal)
-    projected_vertive = project_points_onto_vector(one_surface_vertice, surf_normal)
-    v = np.mean(projected_points, axis=0) - projected_vertive
+    projected_vertice = project_points_onto_vector(one_surface_vertice, surf_normal)
+    v = np.mean(projected_points, axis=0) - projected_vertice
     v = v/np.linalg.norm(v) # Normalized vector pointing inside
-    if np.dot(surf_normal, v) >0: # this should be either 1 or -1. if >0, surf_normal needs the opposite
+    if np.dot( surf_normal, v.flatten() ) >0: # this should be either 1 or -1. if >0, surf_normal needs the opposite
         surf_normal = -surf_normal
     return surf_normal
     
