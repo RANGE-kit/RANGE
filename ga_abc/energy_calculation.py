@@ -54,7 +54,25 @@ class energy_computation:
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
                 m.euler_rotate(center=center_of_geometry, phi=euler[0], theta=euler[1], psi=euler[2])
                 m.translate( t )
-
+                
+            # The replacement function to replace atoms. If the atom symbol is X, it means a vaccancy.
+            elif len(self.go_conversion_rule[i])==2: 
+                t = vec[6*i : 6*i+6]
+                substrate_mol = placed.copy() #[ self.go_conversion_rule[i][0] ] # ase obj: mol to be changed
+                substrate_atom_id = self.go_conversion_rule[i][1][ round(t[0]) ] # int: atom id to be changed
+                symbol_new_atom = m.get_chemical_symbols()[0]
+                if substrate_mol.symbols[ substrate_atom_id ] != symbol_new_atom:
+                    substrate_mol.symbols[ substrate_atom_id ] = 'X'
+                    m.positions[0] = substrate_mol.get_positions()[ substrate_atom_id ]
+                else:  # duplicated site, then pick a new site
+                    idx_avail = [k for k in self.go_conversion_rule[i][1] if substrate_mol.symbols[k]!=symbol_new_atom ]
+                    idx_avail = np.random.choice(idx_avail)
+                    substrate_mol.symbols[ idx_avail ] = 'X'
+                    m.positions[0] = substrate_mol.get_positions()[ idx_avail ]                    
+                #placed[ self.go_conversion_rule[i][0] ] = substrate_mol
+                placed = substrate_mol.copy()
+                #m = Atoms()
+                
             # Check if we have sphere coord in vec. If so, we have 3 semi-axis values here and need to convert t (r, theta, phi) to cart coord
             elif len(self.go_conversion_rule[i])==3: 
                 t = vec[6*i : 6*i+3] 
@@ -77,6 +95,7 @@ class energy_computation:
                 m.rotate( self.go_conversion_rule[i][1], face[3], center=adsorb_location)  # 1 = adsorbate_in_direction --> surf_norm 
                 m.rotate( t[4], face[3], center=adsorb_location )
                 m.rotate( t[5], 'x', center=adsorb_location )
+                
             else:
                 raise ValueError(f'go_conversion_rule has a strange length: {len(self.go_conversion_rule[i])}')
 
@@ -86,9 +105,12 @@ class energy_computation:
             resname_of_placed += m.get_array('residuenames' ).tolist()
             resid_of_placed += [i]*len(m) 
                                      
-        cluster = Atoms(placed)  # concatenate
+        cluster = Atoms(placed) #concatenate Atoms(placed)
         cluster.new_array('residuenames', resname_of_placed, str)
         cluster.new_array('residuenumbers', resid_of_placed, str)
+        
+        # To support vaccancy function
+        del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
         
         return cluster
 

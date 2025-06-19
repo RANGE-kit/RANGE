@@ -181,8 +181,8 @@ class GA_ABC():
 
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
-                    output_line = f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.6g} | best all-time y = {best_y:.6g}"
-                    output_line += f" | Total structures considered: {self.pool_y.shape } "
+                    output_line = f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.9g} | best all-time y = {best_y:.9g}"
+                    output_line += f" | Total structures considered: {len(self.pool_y.flatten()) } "
                     print(output_line)
 
         return best_x, best_y, self.pool_x, self.pool_y, self.pool_name

@@ -31,20 +31,22 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 water = 'Water.xyz'
 methane = 'methane.xyz'
 organic_sub = 'Substrate.xyz'
+single_atom = 'Single_atom.xyz'
 
-input_molecules = [organic_sub, water]
+input_molecules = [organic_sub, single_atom]
 input_num_of_molecules = [1, 1]
 '''
 at_position : X,Y,Z, (Euler_X, Euler_Y, Euler_Z)
 in_box : xlo,ylo,zlo,xhi,yhi,zhi 
 in_sphere_shell : X,Y,Z, R_x, R_y, R_z
-'on_surface' : id_substrate, (lo, hi) of adsorption distance, id_atom_surf, id_atom_orientation
+'on_surface' : id_substrate, (lo, hi) of adsorption distance, id_atom_surf, id_atom_orientation. e.g. (0,(1.9, 2.1),0,1),
+replace: id_substrate, tuple/list of index of available atoms
 '''
 input_constraint_type = ['at_position', 
-                         'on_surface', 
+                         'replace', 
                          ]
 input_constraint_value = [(0,0,0,0,0,0), 
-                          (0,(1.9, 2.1),0,1),
+                          (0, (1,2,3,4,5,6,8,9) ),
                           ]
 
 print( "Step 1: Setting cluster" )
@@ -66,7 +68,7 @@ computation = energy_computation(templates = cluster_template,
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
                                  calculator_type = 'ase', 
-                                 geo_opt_para = geo_opt_parameter, # None = single point calc, 
+                                 geo_opt_para = None, # None = single point calc, 
                                  )
 
 print( "Step 3: Run" )
@@ -74,7 +76,7 @@ print( "Step 3: Run" )
 output_folder_name = 'result'
 
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=10, max_iteration=20, 
+                      colony_size=5, limit=10, max_iteration=10, 
                       ga_interval=20, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = 'result'
                       )
@@ -84,18 +86,37 @@ best_x, best_y, all_x, all_y, all_name = optimization.run(print_interval=1)
 print( "Step 4: See results" )
 # Visualize results
 best_structure = computation.vector_to_cluster(best_x)
+#view(best_structure)
+write('best.xyz',best_structure)
+
 #all_structures = [ computation.vector_to_cluster(x) for x in all_x ]
 fig, axs = plt.subplots(1,2,figsize=(12,6),tight_layout=True)
 xdat = np.arange( len(all_y) )
 mask = all_y < 1e6
 xdat, ydat = xdat[mask], all_y[mask]
-axs[0].plot(xdat, ydat, marker='o', ms=5, lw=3, color='orange', label='All data',alpha=0.8)
-axs[0].set_xlabel('Structures',fontsize=10) ## input X name
+axs[0].plot(xdat, ydat, marker='o', ms=4, lw=2, color='orange', label='All data',alpha=0.8)
+axs[0].set_xlabel('Structures (appearance)',fontsize=10) ## input X name
 axs[0].set_ylabel('Energy',fontsize=10) ## input Y name
 axs[0].tick_params(direction='in',labelsize=8)
-plot_atoms(best_structure, axs[1], radii=0.3, rotation=('0x,0y,0z'))
+#plot_atoms(best_structure, axs[1], radii=0.3, rotation=('0x,0y,0z'))
+
+# Rank and save results
+all_y = np.round(all_y, 6)
+sorted_idx = np.argsort(all_y)[::-1]
+with open('energy_summary.log', 'w') as f1_out:
+    output_line = "Rank".ljust(8) + " | " + "Appear".ljust(8) + " | " + "Energy".ljust(12) + "| " + "Compute_id \n"
+    f1_out.write(output_line)
+    for n, idx in enumerate(sorted_idx):
+        output_line = f"{n:8d} | {idx:8d} | {all_y[idx]:.12g} | {all_name[idx]} \n"
+        f1_out.write(output_line)
+    
+ydat = all_y[sorted_idx]
+xdat = np.arange( len(all_y) )
+axs[1].plot(xdat, ydat, marker='o', ms=4, lw=2, color='skyblue', label='All data',alpha=0.8)
+axs[1].set_xlabel('Structures (re-ordered)',fontsize=10) ## input X name
+axs[1].set_ylabel('Energy',fontsize=10) ## input Y name
+axs[1].tick_params(direction='in',labelsize=8)
+
 plt.show()
 
-#view(best_structure)
-write('best.xyz',best_structure)
 

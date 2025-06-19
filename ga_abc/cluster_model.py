@@ -72,6 +72,8 @@ class cluster_model:
                 """
                 Put molecule at a position (X,Y,Z) with certain orientation (fixed) or random orientation
                 if input parameter dim = 6, i.e. [Center of molecule, 3 Euler angles in degrees], then fix the molecule
+                
+                length of conversion_rule_para is 0
                 """
                 if len( self.constraint_value[n] )==6:  # fix all
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), self.constraint_value[n][3:] )
@@ -86,6 +88,8 @@ class cluster_model:
                 """
                 Put molecule within a box region defined by the lower and upper corner of the box
                 Input parameter must be [xlo, ylo, zlo, xhi, yhi, zhi]
+                
+                length of conversion_rule_para is 0
                 """
                 if len( self.constraint_value[n] )==6:
                     box_size = np.array( self.constraint_value[n] )
@@ -104,6 +108,8 @@ class cluster_model:
                 The question is how to differentiate the first three parameters? Once we write bound and add to go_boudary, we don't know if they are cart or sphe coordinates. 
                 Also, later when vec is converted to XYZ coord, we don't know if they are cart or sphe coord.
                 Work around: use another list to indicate conversion rule: if empty -> cart; if length=3 -> sphe. This could be updated by a smarter way without defining anything (maybe)...
+                
+                length of conversion_rule_para is 3
                 """
                 if len( self.constraint_value[n] )==6 or len( self.constraint_value[n] )==7:
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), [0,0,0] ) # move molecule to the center of sphere X,Y,Z
@@ -129,6 +135,8 @@ class cluster_model:
                 Output is the boundary of 6 variables:
                     For binding location (3): index of face (from 0,1,2...), factor1 and factor2 for a point on this surface
                     For binding distance and angle (3) : binding distance(lo,hi), rotation angle along surf_norm axis, rotate along X
+                
+                length of conversion_rule_para >= 2+3
                 """
                 # First make sure we can generate the surface of substrate correctly
                 try:
@@ -159,6 +167,22 @@ class cluster_model:
                 conversion_rule_para = tuple( conversion_rule_para ) # Length will be >2+3, depending on how many faces
                 
                 bound = [ (-0.499, number_of_faces-1+0.499), (0,1), (0,1) , self.constraint_value[n][1], (0,360), (0,90)]
+                
+            elif self.constraint_type[n] == 'replace':
+                """
+                Replace certain atoms in another substrate molecule defined by fixed position
+                Input parameter is: 
+                    int: molecualr index of the substrate molecule. (Keeping this for future flexibility)
+                    tuple of int (replacement list): the atom index to be replaced in the substrate
+                Output parameter (so far):
+                    the index of items in the replacement list + not used*5
+                
+                length of conversion_rule_para is 1
+                """
+                conversion_rule_para = ( self.constraint_value[n][0], tuple(self.constraint_value[n][1]) ) # The mol idx, and atom idx
+                num_of_site = len(self.constraint_value[n][1])
+
+                bound = [(-0.499, num_of_site-1+0.499) , (0,0), (0,0) ] + [(0,0)]*3
             else:
                 raise ValueError('Constraint type is not supported')
 
