@@ -22,7 +22,6 @@ class energy_computation:
     """
     def __init__(self, templates, go_conversion_rule, 
                  calculator, calculator_type, geo_opt_para,
-                 save_output_header='model',
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -33,7 +32,6 @@ class energy_computation:
         self.calculator = calculator
         self.calculator_type = calculator_type
         self.geo_opt_para = geo_opt_para
-        self.save_output_header = save_output_header
 
     # Convert a vec X to 3D structure using template 
     def vector_to_cluster(self, vec):
@@ -43,6 +41,11 @@ class energy_computation:
         templates : list of ase.Atoms (one per molecule)
         Returns an ase.Atoms super-molecule positioned & rotated.
         """
+        if np.any(self.templates[0].get_pbc()):
+            Cell = self.templates[0].get_cell()
+        else:
+            Cell = None
+            
         placed, resname_of_placed, resid_of_placed = Atoms(), [], []
         for i, mol in enumerate(self.templates):
             # We need to keep molecules in templates unchanged
@@ -104,7 +107,7 @@ class energy_computation:
             placed += m
             resname_of_placed += m.get_array('residuenames' ).tolist()
             resid_of_placed += [i]*len(m) 
-                                     
+                    
         cluster = Atoms(placed) #concatenate Atoms(placed)
         cluster.new_array('residuenames', resname_of_placed, str)
         cluster.new_array('residuenumbers', resid_of_placed, str)
@@ -112,6 +115,11 @@ class energy_computation:
         # To support vaccancy function
         del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
         
+        # Add PBC if needed
+        if Cell is not None:
+            cluster.set_pbc( (True,True,True) )
+            cluster.set_cell( Cell )
+            
         return cluster
 
     
@@ -143,12 +151,12 @@ class energy_computation:
                 try:
                     energy = atoms.get_potential_energy()
                 except:
-                    energy = 1e6
+                    energy = 1e7
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
             np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')
                 
         elif self.calculator_type == 'external': # To use external command
-            energy = self.call_external_calculation(atoms, self.calculator , self.geo_opt_para)
+            energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
             
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0
@@ -157,13 +165,57 @@ class energy_computation:
     
         
     # Call the external tool to compute energy
-    def call_external_calculation(atoms, calculator_lines , geo_opt_para_line ):
-        if calculator_lines == 'gfn2':
-            if geo_opt_para_line is not None:
-                energy = 0
-            else:
-                energy = 1
+    def call_external_calculation(self, atoms, job_directory, calculator_command_lines , geo_opt_para_line ):
+        """
+        atoms = the ASE obj generated.
+        job_directory = 
+        calculator_command_lines = 
+        geo_opt_para_line = 
+
+        Parameters
+        ----------
+        atoms : ASE obj
+            The atoms generated.
+        job_directory : str
+            This job's directory path. All computations need to be done here.
+        calculator_command_lines : str
+            The bash commands needed to perform this computation. 
+            It can has multiple lines as long as each line is seprated by ;
+        geo_opt_para_line : str
+            Provide additional controls.
+
+        Raises
+        ------
+        ValueError
+            DESCRIPTION.
+
+        Returns
+        -------
+        energy : float
+            The energy of this ASE obj (atoms).
+
+        """
+        
+        # Go to the job folder and create the input xyz
+        current_directory = os.getcwd()
+        os.chdir(job_directory)
+        write( 'start.xyz', atoms )
+                
+        calculator_command_lines.replace('{input_xyz}', 'start.xyz')
+
+        # Compute
+        if geo_opt_para_line['method'] == 'xtb-gfn2':
+            if geo_opt_para_line['run_type'] == 'single_point':
+                os.system( calculator_command_lines )
+            elif geo_opt_para_line['run_type'] == 'geo_opt':
+                calculator_command_lines += ' --opt '
+                os.system( calculator_command_lines )
+            energy = 1
         else:
             raise ValueError('External calculation setting has wrong values')
+            
+        # Go back to the main folder
+        os.chdir(current_directory)
+        
         return energy 
     

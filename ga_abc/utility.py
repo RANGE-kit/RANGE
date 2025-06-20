@@ -41,3 +41,8 @@ def correct_surface_normal(one_surface_vertice, surf_normal, points):
         surf_normal = -surf_normal
     return surf_normal
     
+def compare_two_vec_difference(pool_vec, new_vec, tol=0.01):
+    v = np.copy( new_vec )
+    v[v==0] = 1e-9
+    diff = np.mean( np.abs((pool_vec - v)/v) , axis=1 )
+    return diff #np.amin( diff )

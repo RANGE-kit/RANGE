@@ -33,18 +33,22 @@ class cluster_model:
     """
     def __init__(self, molecules, num_of_molecules,
                  constraint_type, constraint_value,
+                 pbc_box=None,
                  ):
         self.molecules = molecules
         self.num_of_molecules = num_of_molecules
         self.constraint_type = constraint_type
         self.constraint_value = constraint_value
+        self.pbc_box = pbc_box
         
     # prepare the molecule (atoms obj) by adding missing info
     # Also this ensures that "molecules" is a list of ASE atoms
     def init_molelcules(self):
         for i, mol in enumerate(self.molecules):
             atoms = read(mol) # if list item is file name
-            
+            if self.pbc_box is not None:
+                atoms.set_pbc( (True,True,True) )
+                atoms.set_cell( self.pbc_box )
             if atoms.has('residuenames'):
                 pass
             else:  # Generate a random three-letter string as name
