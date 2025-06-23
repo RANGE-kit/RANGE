@@ -201,15 +201,16 @@ class energy_computation:
         os.chdir(job_directory)
         write( 'start.xyz', atoms )
                 
-        calculator_command_lines.replace('{input_xyz}', 'start.xyz')
+        calculator_command_lines = calculator_command_lines.replace('{input_xyz}', 'start.xyz')
 
         # Compute
         if geo_opt_para_line['method'] == 'xtb-gfn2':
             if geo_opt_para_line['run_type'] == 'single_point':
-                os.system( calculator_command_lines )
+                pass
             elif geo_opt_para_line['run_type'] == 'geo_opt':
                 calculator_command_lines += ' --opt '
-                os.system( calculator_command_lines )
+            print( calculator_command_lines )
+            #os.system( calculator_command_lines )
             energy = 1
         else:
             raise ValueError('External calculation setting has wrong values')

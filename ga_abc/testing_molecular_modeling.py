@@ -94,12 +94,12 @@ computation = energy_computation(templates = cluster_template,
 
 print( "Step 3: Run" )
 # Put together and run the algorithm
-output_folder_name = 'result'
+output_folder_name = 'results'
 
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=11, 
+                      colony_size=5, limit=20, max_iteration=5, 
                       ga_interval=20, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
-                      output_directory = 'result'
+                      output_directory = output_folder_name
                       )
 best_x, best_y, all_x, all_y, all_name = optimization.run(print_interval=1)
 
