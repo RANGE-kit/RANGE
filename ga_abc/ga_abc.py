@@ -120,8 +120,8 @@ class GA_ABC():
     def run(self, print_interval=None):
         self._init_colony() 
         best_idx = np.argmin(self.y)
-        best_x = self.x[best_idx]
-        best_y = self.y[best_idx]
+        best_x = np.copy( self.x[best_idx] )
+        best_y = np.copy( self.y[best_idx] )
 
         # Keep all the results. Do we need it? The input x will be passed to calculator. 
         # It will be converted to XYZ before calculation. We can save/keep results there.
@@ -176,13 +176,13 @@ class GA_ABC():
             # Update all-time minimum to this iteration minimum if needed.
             # This may also be used for early termination in future.
             if self.y[best_idx] < best_y:
-                best_x = self.x[best_idx]
-                best_y = self.y[best_idx]
+                best_x = np.copy( self.x[best_idx] )
+                best_y = np.copy( self.y[best_idx] )
 
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
                     output_line = f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.9g} | best all-time y = {best_y:.9g}"
                     output_line += f" | Total structures considered: {len(self.pool_y.flatten()) } "
                     print(output_line)
-
+        
         return best_x, best_y, self.pool_x, self.pool_y, self.pool_name

@@ -167,11 +167,8 @@ class energy_computation:
     # Call the external tool to compute energy
     def call_external_calculation(self, atoms, job_directory, calculator_command_lines , geo_opt_para_line ):
         """
-        atoms = the ASE obj generated.
-        job_directory = 
-        calculator_command_lines = 
-        geo_opt_para_line = 
-
+        Prepare the input script, run and save output to a file, get energy from the output file
+        
         Parameters
         ----------
         atoms : ASE obj
@@ -209,9 +206,15 @@ class energy_computation:
                 pass
             elif geo_opt_para_line['run_type'] == 'geo_opt':
                 calculator_command_lines += ' --opt '
-            print( calculator_command_lines )
-            #os.system( calculator_command_lines )
-            energy = 1
+            calculator_command_lines += ' > job.log ' # Write results to job.log
+            os.system( calculator_command_lines )
+            try:
+                # Now get the energy
+                with open('job.log','r') as f1:
+                    energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
+                energy = float(energy[-1][3]) # last energy. Value is the 4th item
+            except:
+                energy = 1e8  # In case the structure is really bad and you cannot get energy 
         else:
             raise ValueError('External calculation setting has wrong values')
             

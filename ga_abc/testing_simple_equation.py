@@ -38,20 +38,18 @@ if __name__ == "__main__":
 
     np.random.seed(0)    
     opt = GA_ABC(target_function, bounds, 
-                colony_size=5, limit=10, max_iteration=50, 
+                colony_size=5, limit=10, max_iteration=30, 
                 ga_interval=10, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
                 output_directory = 'results',
                 )
-    best_x, best_y, all_x, all_y, all_name = opt.run(print_interval=1)
+    best_x, best_y, all_x, all_y, all_name = opt.run(print_interval=10)
 
     # Plot the search trajectory
     for dx,dy in zip(all_x , all_y):
         plt.plot( dx[0], dy, color='r', marker='o', ms=2 )
-    plt.plot(best_x, best_y, color='g', marker='*', ms=5)
+    plt.plot( best_x[0], best_y, color='g', marker='*', ms=10)
     plt.show()
     
     print("\nBest solution found:")
-    print(" x =", np.round(best_x, 4))
+    print(" x =", best_x)
     print(" f =", best_y)
-
-    print( all_x.shape, all_y.shape )

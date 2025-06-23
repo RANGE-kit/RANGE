@@ -9,6 +9,7 @@ Created on Wed Jun  4 09:09:47 2025
 from ga_abc import GA_ABC
 from cluster_model import cluster_model
 from energy_calculation import energy_computation
+from utility import save_energy_summary
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -82,7 +83,7 @@ computation = energy_computation(templates = cluster_template,
                                  )
 """
 # for external
-calculator_command_line = 'xtb {input_xyz}'
+calculator_command_line = 'xtb  {input_xyz}  --silent'
 geo_opt_control_line = dict(method='xtb-gfn2', run_type='single_point')
 
 computation = energy_computation(templates = cluster_template, 
@@ -105,16 +106,18 @@ best_x, best_y, all_x, all_y, all_name = optimization.run(print_interval=1)
 
 
 print( "Step 4: See results" )
-# Visualize results
+# Emphasize the best structure
 best_structure = computation.vector_to_cluster(best_x)
-#view(best_structure)
-write('best.xyz',best_structure)
-
 #all_structures = [ computation.vector_to_cluster(x) for x in all_x ]
+#view(best_structure)
+write( os.path.join(output_folder_name,'best.xyz'), best_structure)
+
+# See and save the energy as function of appearance
+ydat = np.round(all_y, 6)
+xdat = np.arange( len(ydat) )
+#mask = all_y < 1e6
+#xdat, ydat = xdat[mask], all_y[mask]
 fig, axs = plt.subplots(1,2,figsize=(12,6),tight_layout=True)
-xdat = np.arange( len(all_y) )
-mask = all_y < 1e6
-xdat, ydat = xdat[mask], all_y[mask]
 axs[0].plot(xdat, ydat, marker='o', ms=4, lw=2, color='orange', label='All data',alpha=0.8)
 axs[0].set_xlabel('Structures (appearance)',fontsize=10) ## input X name
 axs[0].set_ylabel('Energy',fontsize=10) ## input Y name
@@ -122,22 +125,16 @@ axs[0].tick_params(direction='in',labelsize=8)
 #plot_atoms(best_structure, axs[1], radii=0.3, rotation=('0x,0y,0z'))
 
 # Rank and save results
-all_y = np.round(all_y, 6)
 sorted_idx = np.argsort(all_y)[::-1]
-with open('energy_summary.log', 'w') as f1_out:
-    output_line = "Rank".ljust(8) + " | " + "Appear".ljust(8) + " | " + "Energy".ljust(12) + "| " + "Compute_id \n"
-    f1_out.write(output_line)
-    for n, idx in enumerate(sorted_idx):
-        output_line = f"{n:8d} | {idx:8d} | {all_y[idx]:.12g} | {all_name[idx]} \n"
-        f1_out.write(output_line)
-    
-ydat = all_y[sorted_idx]
-xdat = np.arange( len(all_y) )
+ydat = np.round(all_y[sorted_idx], 6)
+save_energy_summary(sorted_idx, ydat, all_name, os.path.join(output_folder_name, 'energy_summary.log') )
+
+xdat = np.arange( len(ydat) )
 axs[1].plot(xdat, ydat, marker='o', ms=4, lw=2, color='skyblue', label='All data',alpha=0.8)
 axs[1].set_xlabel('Structures (re-ordered)',fontsize=10) ## input X name
 axs[1].set_ylabel('Energy',fontsize=10) ## input Y name
 axs[1].tick_params(direction='in',labelsize=8)
 
-plt.savefig("my_plot.png", dpi=200)
+plt.savefig( os.path.join(output_folder_name,"my_plot.png"), dpi=200)
 plt.show()
 

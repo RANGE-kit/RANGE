@@ -46,3 +46,11 @@ def compare_two_vec_difference(pool_vec, new_vec, tol=0.01):
     v[v==0] = 1e-9
     diff = np.mean( np.abs((pool_vec - v)/v) , axis=1 )
     return diff #np.amin( diff )
+
+def save_energy_summary(write_index_order, ydata, yname, output_file):
+    with open( output_file, 'w') as f1_out:
+        output_line = "Index".ljust(8) + " | " + "Appear".ljust(8) + " | " + "Energy".ljust(12) + "| " + "Compute_id \n"
+        f1_out.write(output_line)
+        for n, idx in enumerate(write_index_order):
+            output_line = f"{n:8d} | {idx:8d} | {ydata[idx]:.12g} | {yname[idx]} \n"
+            f1_out.write(output_line)
