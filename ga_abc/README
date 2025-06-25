@@ -1,9 +1,0 @@
-utility.py contains helper functions
-
-cluster_model.py contains the generation of cluster structures, boundary conditions, etc... Basically things related to the structures.
-
-energy_calculation.py contains the calculators, parameter-structure conversions, etc... Basically things related to the energy computation.
-
-ga_abc.py contains the GA_ABC algorithm itself. Basically things related to the algorithm.
-
-The overall workflow is to have cluster_model to inform the structures need to be generated, to have energy_calculation to inform how to compute energy (which is the target loss), and to have ga_abc to optimize the input vector parameter.
