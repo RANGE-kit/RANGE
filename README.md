@@ -6,7 +6,7 @@ A python code using hybrid ABC GA algorithm to optimize interactive structures f
 
 ## Installation
 
-Installation requires recent versions of
+The code requires the following common dependencies:
 * `numpy`
 * `scipy`
 * `ase`
@@ -17,3 +17,5 @@ pip install .
 ```
 
 ## Acknowledgment
+
+ORNL BES Catalysis

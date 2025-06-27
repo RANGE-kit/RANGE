@@ -8,4 +8,4 @@
 #SBATCH --qos debug
 #SBATCH --time 0:30:00 
 
-python  testing_molecular_modeling.py
+python  onsurface_Cu12_CO2_CP2K.py 

@@ -74,7 +74,7 @@
                 UKS
 
 		&SCF
-			MAX_SCF    80
+			MAX_SCF    10
 			EPS_SCF    1.E-06
 			SCF_GUESS  RESTART
 			&OT  T
