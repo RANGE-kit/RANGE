@@ -201,11 +201,11 @@ class energy_computation:
         calculator_command_lines = calculator_command_lines.replace('{input_xyz}', 'start.xyz')
 
         # Compute
-        if geo_opt_para_line['method'] == 'xtb-gfn2':
-            if geo_opt_para_line['run_type'] == 'single_point':
-                pass
-            elif geo_opt_para_line['run_type'] == 'geo_opt':
+        if geo_opt_para_line['method'] in [ 'xtb-gfn2', 'xtb-gfnff' ]:
+            if geo_opt_para_line['run_type'] == 'geo_opt':
                 calculator_command_lines += ' --opt '
+            elif not geo_opt_para_line['run_type'] == 'single_point':
+                raise ValueError('Run Type is set to a wrong value')
             calculator_command_lines += ' > job.log ' # Write results to job.log
             os.system( calculator_command_lines )
             try:
@@ -215,8 +215,23 @@ class energy_computation:
                 energy = float(energy[-1][3]) # last energy. Value is the 4th item
             except:
                 energy = 1e8  # In case the structure is really bad and you cannot get energy 
+        elif geo_opt_para_line['method'] == 'CP2K':
+            if 'input' in geo_opt_para_line: # Check if CP2K input is ready
+                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
+                    CP2K_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root
+                    CP2K_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError('CP2K input is not ready')
+                    
+                # Run CP2K
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', CP2K_input)
+                print( calculator_command_lines )
+                energy = 0.1
+            else:
+                energy = 1e8 # Not CP2K simulation performed. Just a structure generation.
         else:
-            raise ValueError('External calculation setting has wrong values')
+            raise ValueError('External calculation setting has wrong values:', geo_opt_para_line )
             
         # Go back to the main folder
         os.chdir(current_directory)
