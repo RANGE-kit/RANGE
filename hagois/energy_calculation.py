@@ -14,6 +14,8 @@ from ase.optimize import BFGS
 #from ase.io.trajectory import Trajectory
 from ase.io import write
 
+import subprocess
+
 
 class energy_computation:
     """
@@ -223,11 +225,21 @@ class energy_computation:
                     CP2K_input = os.path.join(current_directory, geo_opt_para_line['input'])
                 else:
                     raise ValueError('CP2K input is not ready')
-                    
                 # Run CP2K
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', CP2K_input)
-                print( calculator_command_lines )
-                energy = 0.1
+                try:
+                    result = subprocess.run(calculator_command_lines, 
+                                            shell=True, check=True, 
+                                            capture_output=True, text=True
+                                            )
+                    # Now get the energy from CP2K
+                    with open('job.log','r') as f1:
+                        energy = [line.split() for line in f1.readlines() if "Total energy: " in line ]
+                    energy = float(energy[-1][2]) # last energy. Value is the 3rd item
+                except subprocess.CalledProcessError as e:
+                    print( job_directory , e.stderr)
+                    energy = 1e7
+
             else:
                 energy = 1e8 # Not CP2K simulation performed. Just a structure generation.
         else:

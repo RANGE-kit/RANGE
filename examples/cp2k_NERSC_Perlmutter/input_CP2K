@@ -1,0 +1,165 @@
+#CP2K
+#Settings:
+@set RUNTYPE  ENERGY  ## GEO_OPT or MD
+@set FNAME    pore
+@set XYZ_FILE start.xyz
+@set DATA_DIR /global/cfs/cdirs/m3269/difan/cp2k_basis_and_potentials
+#Inputs:
+@set TEMP     298.0
+@set TIMESTEP 0.5
+
+&GLOBAL
+	PROJECT ${FNAME}
+	RUN_TYPE ${RUNTYPE}
+	PRINT_LEVEL LOW
+#	WALLTIME 42500
+&END GLOBAL
+&EXT_RESTART
+#	EXTERNAL_FILE HZSM5-16w-1gcy-1.restart
+#	RESTART_COUNTERS F
+&END EXT_RESTART
+&MOTION
+	&MD
+		ENSEMBLE     NVT
+		STEPS        200000
+		TIMESTEP     ${TIMESTEP}
+		TEMPERATURE  ${TEMP}
+		&THERMOSTAT
+			REGION  GLOBAL
+			&NOSE
+				LENGTH  3
+				YOSHIDA 3
+				MTS 2
+				TIMECON [wavenumber_t] 1500
+			&END NOSE
+		&END THERMOSTAT
+	&END MD
+	&PRINT
+		&TRAJECTORY  
+			PRINT_ATOM_KIND TRUE
+		&END TRAJECTORY
+		&FORCES  
+		&END FORCES
+		&VELOCITIES  
+		&END VELOCITIES
+		&CELL
+		&END CELL
+		&RESTART  
+			ADD_LAST  NUMERIC
+			&EACH
+				MD 1
+			&END EACH
+		&END RESTART
+		&RESTART_HISTORY  
+			&EACH
+				MD  500
+			&END EACH
+		&END RESTART_HISTORY
+	&END PRINT
+	&GEO_OPT
+		MAX_ITER  5000
+		MAX_FORCE 0.0009725
+		OPTIMIZER BFGS
+	&END GEO_OPT
+&END MOTION
+&FORCE_EVAL
+	METHOD  Quickstep
+	&DFT
+		BASIS_SET_FILE_NAME ${DATA_DIR}/BASIS
+		POTENTIAL_FILE_NAME ${DATA_DIR}/GTH_POTENTIALS
+		WFN_RESTART_FILE_NAME ./${FNAME}-RESTART.wfn
+
+                CHARGE  2
+                MULTIPLICITY  3
+                UKS
+
+		&SCF
+			MAX_SCF    80
+			EPS_SCF    1.E-06
+			SCF_GUESS  RESTART
+			&OT  T
+		         MINIMIZER  CG
+		         LINESEARCH  2PNT
+		         PRECONDITIONER  FULL_KINETIC  # FULL_ALL
+			&END OT
+		&END SCF
+		&QS
+			WF_INTERPOLATION    ASPC
+			EXTRAPOLATION_ORDER 3
+		&END QS
+		&MGRID
+			CUTOFF       400
+			#REL_CUTOFF   60
+		&END MGRID
+		&XC
+			&XC_FUNCTIONAL  PBE
+			&END XC_FUNCTIONAL
+			&VDW_POTENTIAL
+				POTENTIAL_TYPE  PAIR_POTENTIAL
+				&PAIR_POTENTIAL
+					TYPE                 DFTD3
+					PARAMETER_FILE_NAME  ${DATA_DIR}/dftd3.dat
+					REFERENCE_FUNCTIONAL PBE
+					R_CUTOFF [angstrom]  2.E+01
+					#VERBOSE_OUTPUT T
+				 &END PAIR_POTENTIAL
+			&END VDW_POTENTIAL
+		&END XC
+		&PRINT
+		#	&MOMENTS
+		#		ADD_LAST NUMERIC
+		#		COMMON_ITERATION_LEVELS 1
+		#		FILENAME =HBEA-CyOH-6Diox.dip
+		#		MAX_MOMENT 1
+		#		PERIODIC T
+		#		REFERENCE COAC
+		#	&END MOMENTS
+		&END PRINT
+	&END DFT
+	&SUBSYS
+		&CELL
+                        ABC  13.89  13.89  17.18
+                        ALPHA_BETA_GAMMA  90  90  120
+		&END CELL
+		
+		&TOPOLOGY
+		  COORD_FILE_NAME  ${XYZ_FILE}
+		  COORD_FILE_FORMAT XYZ
+		&END
+		#&COORD
+		#	@INCLUDE '${XYZ_FILE}'
+		#&END COORD
+                &KIND Si
+                        BASIS_SET DZVP-MOLOPT-SR-GTH
+                        POTENTIAL GTH-PBE-q4
+                &END KIND
+		&KIND O
+			BASIS_SET DZVP-MOLOPT-SR-GTH
+			POTENTIAL GTH-PBE-q6
+		&END KIND
+		&KIND Al
+			BASIS_SET DZVP-MOLOPT-SR-GTH
+			POTENTIAL GTH-PBE-q3
+		&END KIND
+		&KIND Ni
+			BASIS_SET DZVP-MOLOPT-SR-GTH
+			POTENTIAL GTH-PBE-q18
+		&END KIND
+
+                &KIND H
+                        BASIS_SET DZVP-MOLOPT-SR-GTH
+                        POTENTIAL GTH-PBE-q1
+                &END KIND
+                &KIND C
+                        BASIS_SET DZVP-MOLOPT-SR-GTH
+                        POTENTIAL GTH-PBE-q4
+                &END KIND
+
+                &KIND Cu
+                        BASIS_SET DZVP-MOLOPT-SR-GTH
+                        POTENTIAL GTH-PBE-q11
+                &END KIND
+
+
+	&END SUBSYS
+&END FORCE_EVAL

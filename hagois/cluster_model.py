@@ -4,7 +4,7 @@ Created on Wed Jun  4 08:56:08 2025
 
 @author: d2j
 """
-from utility import correct_surface_normal
+from hagois.utility import correct_surface_normal
 
 import numpy as np
 from ase.io import read

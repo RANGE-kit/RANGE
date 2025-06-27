@@ -6,10 +6,10 @@ Created on Wed Jun  4 09:09:47 2025
 """
 
 
-from ga_abc import GA_ABC
-from cluster_model import cluster_model
-from energy_calculation import energy_computation
-from utility import save_energy_summary
+from hagois.ga_abc import GA_ABC
+from hagois.cluster_model import cluster_model
+from hagois.energy_calculation import energy_computation
+from hagois.utility import save_energy_summary
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -83,8 +83,11 @@ computation = energy_computation(templates = cluster_template,
                                  )
 """
 # for external
-calculator_command_line = 'xtb  {input_xyz}  --silent'
-geo_opt_control_line = dict(method='xtb-gfn2', run_type='single_point')
+#calculator_command_line = 'xtb  {input_xyz}  --silent'
+#geo_opt_control_line = dict(method='xtb-gfn2', run_type='single_point')
+calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log "
+
+geo_opt_control_line = dict(method='CP2K', input='input_CP2K')
 
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
@@ -98,7 +101,7 @@ print( "Step 3: Run" )
 output_folder_name = 'results'
 
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=5, 
+                      colony_size=2, limit=20, max_iteration=2, 
                       ga_interval=20, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name
                       )
@@ -136,5 +139,4 @@ axs[1].set_ylabel('Energy',fontsize=10) ## input Y name
 axs[1].tick_params(direction='in',labelsize=8)
 
 plt.savefig( os.path.join(output_folder_name,"my_plot.png"), dpi=200)
-plt.show()
-
+#plt.show()
