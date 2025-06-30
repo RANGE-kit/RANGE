@@ -74,26 +74,11 @@ ase_calculator = XTB(method="GFN2-xTB") #TBLite(method="GFN2-xTB", verbosity=-1)
 geo_opt_parameter = dict(fmax=0.2, steps=20)
 
 # for ASE
-"""
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
                                  calculator_type = 'ase', 
                                  geo_opt_para = None, # None = single point calc, 
-                                 )
-"""
-# for external
-#calculator_command_line = 'xtb  {input_xyz}  --silent'
-#geo_opt_control_line = dict(method='xtb-gfn2', run_type='single_point')
-calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log "
-
-geo_opt_control_line = dict(method='CP2K', input='input_CP2K')
-
-computation = energy_computation(templates = cluster_template, 
-                                 go_conversion_rule = cluster_conversion_rule, 
-                                 calculator = calculator_command_line,
-                                 calculator_type = 'external', 
-                                 geo_opt_para = geo_opt_control_line 
                                  )
 
 print( "Step 3: Run" )

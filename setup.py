@@ -8,7 +8,7 @@ Created on Wed Jun 25 10:27:07 2025
 from setuptools import setup, find_packages
 
 setup(
-    name="RANGE",
+    name="RANGE_py",
     version="0.1",
     author="d2j",
     author_email="Email Here",
