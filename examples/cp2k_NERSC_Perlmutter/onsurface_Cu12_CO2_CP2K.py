@@ -6,10 +6,10 @@ Created on Wed Jun  4 09:09:47 2025
 """
 
 
-from hagois.ga_abc import GA_ABC
-from hagois.cluster_model import cluster_model
-from hagois.energy_calculation import energy_computation
-from hagois.utility import save_energy_summary
+from RANGE_py.ga_abc import GA_ABC
+from RANGE_py.cluster_model import cluster_model
+from RANGE_py.energy_calculation import energy_computation
+from RANGE_py.utility import save_energy_summary
 
 import numpy as np
 import matplotlib.pyplot as plt

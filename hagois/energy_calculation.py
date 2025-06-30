@@ -61,10 +61,10 @@ class energy_computation:
                 m.translate( t )
                 
             # The replacement function to replace atoms. If the atom symbol is X, it means a vaccancy.
-            elif len(self.go_conversion_rule[i])==2: 
+            elif len(self.go_conversion_rule[i])==1: 
                 t = vec[6*i : 6*i+6]
                 substrate_mol = placed.copy() #[ self.go_conversion_rule[i][0] ] # ase obj: mol to be changed
-                substrate_atom_id = self.go_conversion_rule[i][1][ round(t[0]) ] # int: atom id to be changed
+                substrate_atom_id = self.go_conversion_rule[i][0][ round(t[0]) ] # int: atom id to be changed
                 symbol_new_atom = m.get_chemical_symbols()[0]
                 if substrate_mol.symbols[ substrate_atom_id ] != symbol_new_atom:
                     substrate_mol.symbols[ substrate_atom_id ] = 'X'
@@ -77,6 +77,35 @@ class energy_computation:
                 #placed[ self.go_conversion_rule[i][0] ] = substrate_mol
                 placed = substrate_mol.copy()
                 #m = Atoms()
+                
+            # inside box with outside limit: where the two parameter inside tells the lo and hi of inner box
+            elif len(self.go_conversion_rule[i])==2:     
+                t = vec[6*i : 6*i+3]  # Cartesian coord in vec by default
+                euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
+                m.euler_rotate(center=center_of_geometry, phi=euler[0], theta=euler[1], psi=euler[2])
+                # Now we need to adjust the translation vector t
+                xlo, ylo, zlo = go_conversion_rule[i][0]
+                xhi, yhi, zhi = go_conversion_rule[i][1]
+                if_inside_inner = (xlo <= t[0] <= xhi) and (ylo <= t[1] <= yhi) and (zlo <= t[2] <= zhi)
+                if if_inside_inner:
+                    distances = {'xlo': abs(t[0] - xlo), 'xhi': abs(t[0] - xhi),  
+                                 'ylo': abs(t[1] - ylo), 'yhi': abs(t[1] - yhi),
+                                 'zlo': abs(t[2] - zlo), 'zhi': abs(t[2] - zhi),
+                                 }
+                    closest_face = min(distances, key=distances.get) # Get key for the smallest distance
+                    if closest_face == 'xlo':  
+                        t[0] = xlo - 1e-3
+                    elif closest_face == 'xhi':
+                        t[0] = xhi + 1e-3
+                    elif closest_face == 'ylo':
+                        t[1] = ylo - 1e-3
+                    elif closest_face == 'yhi':
+                        t[1] = yhi + 1e-3
+                    elif closest_face == 'zlo':
+                        t[2] = zlo - 1e-3
+                    elif closest_face == 'zhi':
+                        t[2] = zhi + 1e-3
+                m.translate( t )
                 
             # Check if we have sphere coord in vec. If so, we have 3 semi-axis values here and need to convert t (r, theta, phi) to cart coord
             elif len(self.go_conversion_rule[i])==3: 

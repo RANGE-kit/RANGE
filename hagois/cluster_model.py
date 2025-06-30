@@ -4,7 +4,7 @@ Created on Wed Jun  4 08:56:08 2025
 
 @author: d2j
 """
-from hagois.utility import correct_surface_normal
+from RANGE_py.utility import correct_surface_normal
 
 import numpy as np
 from ase.io import read
@@ -93,16 +93,27 @@ class cluster_model:
                 Put molecule within a box region defined by the lower and upper corner of the box
                 Input parameter must be [xlo, ylo, zlo, xhi, yhi, zhi]
                 
-                length of conversion_rule_para is 0
+                for input parameter is [xlo, ylo, zlo, xhi, yhi, zhi] *2
+                The second box is used the exclude the region (outside box)
+                
+                length of conversion_rule_para is 0 for inside box, but 2 for inside+outside box
                 """
-                if len( self.constraint_value[n] )==6:
+                if len( self.constraint_value[n] )==6: # Inside box only
                     box_size = np.array( self.constraint_value[n] )
                     box_size = box_size[3:] - box_size[:3]
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), [0,0,0] ) # move molecule to lower corner
                     bound = [ (0,box_size[0]) , (0,box_size[1]) , (0,box_size[2]) ] + [(0,360)]*3
+                elif len( self.constraint_value[n] )==12: # Inside first box and outside the second box
+                    box_size = np.array( self.constraint_value[n] )
+                    box_size_outer = box_size[3:6] - box_size[:3]
+                    self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), [0,0,0] ) # move molecule to lower corner
+                    bound = [ (0,box_size_outer[0]) , (0,box_size_outer[1]) , (0,box_size_outer[2]) ] + [(0,360)]*3
+                    box_inner_lo = box_size[6:9] - box_size[:3]
+                    box_inner_hi = box_size[9: ] - box_size[:3]
+                    conversion_rule_para = ( tuple(box_inner_lo), tuple(box_inner_hi) )
                 else:
                     raise ValueError('Number of parameters should be 6')
-                    
+                
             elif self.constraint_type[n] == 'in_sphere_shell':
                 """
                 Put molecule within a sphere region defined by the center of sphere and radius along X,Y,Z directions
@@ -183,7 +194,8 @@ class cluster_model:
                 
                 length of conversion_rule_para is 1
                 """
-                conversion_rule_para = ( self.constraint_value[n][0], tuple(self.constraint_value[n][1]) ) # The mol idx, and atom idx
+                #conversion_rule_para = ( self.constraint_value[n][0], tuple(self.constraint_value[n][1]) ) # The mol idx, and atom idx
+                conversion_rule_para = ( tuple(self.constraint_value[n][0]) ) # atom idx. The mol idx will always be 0 (the first mol)
                 num_of_site = len(self.constraint_value[n][1])
 
                 bound = [(-0.499, num_of_site-1+0.499) , (0,0), (0,0) ] + [(0,0)]*3

@@ -1,8 +1,8 @@
-# HAGOIS
+# RANGE
 
-Hybrid ABC-GA for Optimizing Interactive Systems (HAGOIS)
+RANGE (RANGE)
 
-A python code using hybrid ABC GA algorithm to optimize interactive structures for chemistry and materials science
+A python code using hybrid ABC GA algorithm to search structures for chemistry and materials science
 
 ## Installation
 
