@@ -7,6 +7,7 @@ Created on Wed Jun  4 08:55:16 2025
 
 import numpy as np
 import os
+import time
 
 
 class GA_ABC():
@@ -118,6 +119,8 @@ class GA_ABC():
         
     # The main loop 
     def run(self, print_interval=None):
+        start_time = time.time()
+
         self._init_colony() 
         best_idx = np.argmin(self.y)
         best_x = np.copy( self.x[best_idx] )
@@ -127,6 +130,8 @@ class GA_ABC():
         # It will be converted to XYZ before calculation. We can save/keep results there.
 
         lo, hi = self.bounds.T
+        current_time = time.time() - start_time
+        print( 'Start iteration. Current time cost: ', current_time )
         for it in range(1, self.max_iteration+1):
             #  employed phase
             for i in range(self.colony_size):
@@ -181,8 +186,10 @@ class GA_ABC():
 
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
+                    current_time = time.time() - start_time
                     output_line = f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.9g} | best all-time y = {best_y:.9g}"
                     output_line += f" | Total structures considered: {len(self.pool_y.flatten()) } "
+                    output_line += f" | Current time cost: {current_time}"
                     print(output_line)
         
         return best_x, best_y, self.pool_x, self.pool_y, self.pool_name

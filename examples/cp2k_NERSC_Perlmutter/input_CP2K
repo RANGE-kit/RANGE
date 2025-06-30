@@ -118,8 +118,8 @@
 	&END DFT
 	&SUBSYS
 		&CELL
-                        ABC  13.89  13.89  17.18
-                        ALPHA_BETA_GAMMA  90  90  120
+                        ABC   20  20  20
+                        ALPHA_BETA_GAMMA  90  90  90
 		&END CELL
 		
 		&TOPOLOGY
