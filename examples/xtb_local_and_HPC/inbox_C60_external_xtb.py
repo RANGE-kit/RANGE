@@ -58,9 +58,10 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 
 print( "Step 2: Setting calculator" )
 # Set the way to compute energy
-calculator_command_line = " ~/bin/xtb  {input_xyz} --etemp 2500 --opt tight  --cycles 500 --iterations 1000 "
+xtb_exe_path = '/Users/d2j/Downloads/xtb-6.7.1/bin/xtb.exe'
+calculator_command_line = xtb_exe_path + " --gfnff  {input_xyz} --etemp 2500 --opt normal --cycles 300 --iterations 1000 "
 
-geo_opt_control_line = dict(method='xtb-gfn2')
+geo_opt_control_line = dict(method='xTB')
 
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 

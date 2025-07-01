@@ -232,7 +232,7 @@ class energy_computation:
         calculator_command_lines = calculator_command_lines.replace('{input_xyz}', 'start.xyz')
 
         # Compute
-        if geo_opt_para_line['method'] in [ 'xtb-gfn2', 'xtb-gfnff' ]:
+        if geo_opt_para_line['method'] == 'xTB':
             calculator_command_lines += ' > job.log ' # Write results to job.log
             try:
                 result = subprocess.run(calculator_command_lines, 
@@ -242,7 +242,13 @@ class energy_computation:
                 # Now get the energy
                 with open('job.log','r') as f1:
                     energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
-                energy = float(energy[-1][3]) # last energy. Value is the 4th item
+                    energy1 = [ line.split() for line in f1.readlines() if "* total energy " in line ]
+                if len(energy)>0:
+                    energy = float(energy[-1][3]) # last energy. Value is the 4th item
+                elif len(energy1)>0:
+                    energy = float(energy1[-1][4]) 
+                else:
+                    energy = 1e7
             except:
                 energy = 1e8  # In case the structure is really bad and you cannot get energy 
         elif geo_opt_para_line['method'] == 'CP2K':
