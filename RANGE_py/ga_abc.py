@@ -192,4 +192,4 @@ class GA_ABC():
                     output_line += f" | Current time cost: {current_time}"
                     print(output_line)
         
-        return best_x, best_y, self.pool_x, self.pool_y, self.pool_name
+        return self.pool_x, self.pool_y, self.pool_name

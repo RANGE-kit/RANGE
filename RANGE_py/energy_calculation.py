@@ -84,8 +84,8 @@ class energy_computation:
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
                 m.euler_rotate(center=center_of_geometry, phi=euler[0], theta=euler[1], psi=euler[2])
                 # Now we need to adjust the translation vector t
-                xlo, ylo, zlo = go_conversion_rule[i][0]
-                xhi, yhi, zhi = go_conversion_rule[i][1]
+                xlo, ylo, zlo = self.go_conversion_rule[i][0]
+                xhi, yhi, zhi = self.go_conversion_rule[i][1]
                 if_inside_inner = (xlo <= t[0] <= xhi) and (ylo <= t[1] <= yhi) and (zlo <= t[2] <= zhi)
                 if if_inside_inner:
                     distances = {'xlo': abs(t[0] - xlo), 'xhi': abs(t[0] - xhi),  
@@ -191,7 +191,7 @@ class energy_computation:
             
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0
-            
+        #print( energy, computing_id)
         return energy
     
         
