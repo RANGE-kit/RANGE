@@ -233,13 +233,12 @@ class energy_computation:
 
         # Compute
         if geo_opt_para_line['method'] in [ 'xtb-gfn2', 'xtb-gfnff' ]:
-            if geo_opt_para_line['run_type'] == 'geo_opt':
-                calculator_command_lines += ' --opt '
-            elif not geo_opt_para_line['run_type'] == 'single_point':
-                raise ValueError('Run Type is set to a wrong value')
             calculator_command_lines += ' > job.log ' # Write results to job.log
-            os.system( calculator_command_lines )
             try:
+                result = subprocess.run(calculator_command_lines, 
+                                        shell=True, check=True, 
+                                        capture_output=True, text=True
+                                        )
                 # Now get the energy
                 with open('job.log','r') as f1:
                     energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
