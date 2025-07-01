@@ -33,7 +33,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 carbon = '../xyz_structures/C.xyz'
 
 input_molecules = [carbon]
-input_num_of_molecules = [6]
+input_num_of_molecules = [60]
  
 '''
 at_position : X,Y,Z, (Euler_X, Euler_Y, Euler_Z)
@@ -44,7 +44,7 @@ replace: id_substrate, tuple/list of index of available atoms
 '''
 input_constraint_type = ['in_box', 
                          ]
-input_constraint_value = [(0,0,0,3,3,3)  #(0,0,0,7,7,7, 1.5,1.5,1.5,5.5,5.5,5.5), 
+input_constraint_value = [ (0,0,0,11,11,11, 4,4,4,7,7,7)  #(0,0,0,7,7,7, 1.5,1.5,1.5,5.5,5.5,5.5), 
                           ]
 
 print( "Step 1: Setting cluster" )
@@ -58,7 +58,7 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 
 print( "Step 2: Setting calculator" )
 # Set the way to compute energy
-calculator_command_line = " xtb  {input_xyz} --opt "
+calculator_command_line = " ~/bin/xtb  {input_xyz} --etemp 2500 --opt tight  --cycles 500 --iterations 1000 "
 
 geo_opt_control_line = dict(method='xtb-gfn2')
 
