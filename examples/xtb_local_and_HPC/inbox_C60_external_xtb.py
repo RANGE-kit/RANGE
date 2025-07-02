@@ -42,9 +42,11 @@ in_sphere_shell : X,Y,Z, R_x, R_y, R_z
 'on_surface' : id_substrate, (lo, hi) of adsorption distance, id_atom_surf, id_atom_orientation. e.g. (0,(1.9, 2.1),0,1),
 replace: id_substrate, tuple/list of index of available atoms
 '''
-input_constraint_type = ['in_box', 
+input_constraint_type = [#'in_box', 
+                         'in_sphere_shell'
                          ]
-input_constraint_value = [ (0,0,0,11,11,11, 4,4,4,7,7,7)  #(0,0,0,7,7,7, 1.5,1.5,1.5,5.5,5.5,5.5), 
+input_constraint_value = [ #(0,0,0,11,11,11, 4,4,4,7,7,7)  #(0,0,0,7,7,7, 1.5,1.5,1.5,5.5,5.5,5.5), 
+                          (0,0,0, 4,4,4,  0.2)
                           ]
 
 print( "Step 1: Setting cluster" )
@@ -71,11 +73,11 @@ computation = energy_computation(templates = cluster_template,
                                  )
 
 # Put together and run the algorithm
-output_folder_name = 'results'
+output_folder_name = 'results-inshpere'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=3, 
-                      ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
+                      colony_size=10, limit=10, max_iteration=100, 
+                      ga_interval=5, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1)

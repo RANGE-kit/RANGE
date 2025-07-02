@@ -15,6 +15,7 @@ from ase.optimize import BFGS
 from ase.io import write
 
 import subprocess
+import shutil
 
 
 class energy_computation:
@@ -239,6 +240,11 @@ class energy_computation:
                                         shell=True, check=True, 
                                         capture_output=True, text=True
                                         )
+                # Get the final structure
+                if os.path.exists( 'xtbopt.xyz' ):
+                    shutil.copyfile( 'xtbopt.xyz' , 'final.xyz' )
+                elif os.path.exists( 'xtblast.xyz' ):
+                    shutil.copyfile( 'xtblast.xyz' , 'final.xyz' )
                 # Now get the energy
                 with open('job.log','r') as f1:
                     energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
