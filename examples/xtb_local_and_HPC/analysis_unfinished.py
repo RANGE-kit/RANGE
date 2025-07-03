@@ -18,7 +18,7 @@ for j in jobs_name:
     log = os.path.join( output_folder_name , j , 'job.log')
     with open(log,'r') as f1:
         energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
-        energy1 = [ line.split() for line in f1.readlines() if "* total energy " in line ]
+        energy1 = [ line.split() for line in f1.readlines() if "total energy " in line ]
     if len(energy)>0:
         energy = float(energy[-1][3]) # last energy. Value is the 4th item
     elif len(energy1)>0:
