@@ -170,20 +170,25 @@ class energy_computation:
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
             if self.geo_opt_para is not None:
+                dyn_log = os.path.join(new_cumpute_directory, 'opt.log') 
+                dyn = BFGS(atoms, logfile=dyn_log ) 
+                ##traj = Trajectory( os.path.join(new_cumpute_directory, 'opt.traj'), 'w', atoms)
+                ##dyn.attach(traj.write, interval=10)
                 try:
-                    dyn_log = os.path.join(new_cumpute_directory, 'opt.log') 
-                    dyn = BFGS(atoms, logfile=dyn_log ) 
-                    #traj = Trajectory( os.path.join(new_cumpute_directory, 'opt.traj'), 'w', atoms)
-                    #dyn.attach(traj.write, interval=10)
-                    dyn.run( fmax=self.geo_opt_para['fmax'], steps=self.geo_opt_para['steps'] )
+                    fmax = self.geo_opt_para['fmax']
+                    steps = self.geo_opt_para['steps']
+                except:
+                    raise ValueError('Geo Opt cannot be done due to missing parameter fmax or steps' )
+                try:                    
+                    dyn.run( fmax=fmax, steps=steps )
                     energy = atoms.get_potential_energy()
                 except:
-                    energy = 1e6
+                    energy = 1e7 # Cannot optimize properly to get energy
             else:
                 try:
                     energy = atoms.get_potential_energy()
                 except:
-                    energy = 1e7
+                    energy = 1e8 # Cannot compute energy
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
             np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')
                 
@@ -248,23 +253,23 @@ class energy_computation:
                 # Now get the energy
                 with open('job.log','r') as f1:
                     energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
-                    energy1 = [ line.split() for line in f1.readlines() if "* total energy " in line ]
+                    energy1 = [ line.split() for line in f1.readlines() if "total energy " in line ]
                 if len(energy)>0:
                     energy = float(energy[-1][3]) # last energy. Value is the 4th item
                 elif len(energy1)>0:
                     energy = float(energy1[-1][4]) 
                 else:
-                    energy = 1e7
+                    energy = 1e7 # Optimization done but no energy written. This is rare.
             except:
-                energy = 1e8  # In case the structure is really bad and you cannot get energy 
+                energy = 1e8  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
         elif geo_opt_para_line['method'] == 'CP2K':
             if 'input' in geo_opt_para_line: # Check if CP2K input is ready
                 if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
                     CP2K_input = geo_opt_para_line['input']
-                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
                     CP2K_input = os.path.join(current_directory, geo_opt_para_line['input'])
                 else:
-                    raise ValueError('CP2K input is not ready')
+                    raise ValueError('CP2K input is not found from key path')
                 # Run CP2K
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', CP2K_input)
                 try:
@@ -281,7 +286,7 @@ class energy_computation:
                     energy = 1e7
 
             else:
-                energy = 1e8 # Not CP2K simulation performed. Just a structure generation.
+                raise NameError('CP2K input is not provided by input key')
         else:
             raise ValueError('External calculation setting has wrong values:', geo_opt_para_line )
             
