@@ -8,7 +8,7 @@ Created on Wed Jun  4 09:09:47 2025
 
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import energy_computation
+from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
 from RANGE_py.utility import save_energy_summary, save_best_structure
 
 import numpy as np
@@ -39,8 +39,8 @@ copper_12 = 'xyz_structures/Cu12.xyz'
 co2 = 'xyz_structures/CO2.xyz'
 #O_atoms_idx_in_slab = tuple([at.index for at in read(slab_surface) if at.symbol=='O'])
 
-input_molecules = [copper_12, co2]
-input_num_of_molecules = [1, 1]
+input_molecules = [water]#, co2]
+input_num_of_molecules = [10]#, 1]
  
 '''
 at_position : X,Y,Z, (Euler_X, Euler_Y, Euler_Z)
@@ -49,11 +49,13 @@ in_sphere_shell : X,Y,Z, R_x, R_y, R_z
 'on_surface' : id_substrate, (lo, hi) of adsorption distance, id_atom_surf, id_atom_orientation. e.g. (0,(1.9, 2.1),0,1),
 replace: id_substrate, tuple/list of index of available atoms
 '''
-input_constraint_type = ['at_position', 
-                         'on_surface', 
+input_constraint_type = [#'at_position', 
+                         #'on_surface',
+                         'in_sphere_shell'
                          ]
-input_constraint_value = [(0,0,0,0,0,0), 
-                          (0,(1.9, 2.1),1,0),
+input_constraint_value = [#(0,0,0,0,0,0), 
+                          #(0,(1.9, 2.1),1,0),
+                          (0,0,0,3,3,3)
                           ]
 
 print( "Step 1: Setting cluster" )
@@ -69,13 +71,20 @@ print( "Step 2: Setting calculator" )
 # Set the way to compute energy
 ase_calculator = XTB(method="GFN2-xTB") #TBLite(method="GFN2-xTB", verbosity=-1)
 #ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda')
-#geo_opt_parameter = dict(fmax=0.2, steps=20)
+geo_opt_parameter = dict(fmax=0.2, steps=20)
 # for ASE
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
                                  calculator_type = 'ase', 
-                                 geo_opt_para = None, # None = single point calc, 
+                                 geo_opt_para = geo_opt_parameter, # None = single point calc, 
+                                 # Below are for coarse optimization
+                                 if_coarse_calc = True, 
+                                 coarse_calc_eps = None, 
+                                 coarse_calc_sig = None, 
+                                 coarse_calc_chg = [0.417, -0.834, 0.417]*10 , 
+                                 coarse_calc_step = 30, 
+                                 coarse_calc_fmax = 2,
                                  )
 
 # Put together and run the algorithm
@@ -97,16 +106,20 @@ save_best_structure(output_folder_name, all_name[sorted_idx[0]] , os.path.join(o
 print( 'Best structure: ', all_name[sorted_idx[0]] )
 
 # Plot energy vs appearance and ranked energies
-ydat = np.round(all_y, 6)
-xdat = np.arange( len(ydat) )
-#mask = all_y < 1e6
-#xdat, ydat = xdat[mask], all_y[mask]
+#ydat = np.round(all_y, 6)
+xdat = np.arange( len(all_y) )
+mask = all_y < 1e6
+xdat, ydat = xdat[mask], all_y[mask]
 fig, axs = plt.subplots(1,2,figsize=(12,6),tight_layout=True)
 axs[0].plot(xdat, ydat, marker='o', ms=4, lw=2, color='orange', label='All data',alpha=0.8)
 axs[0].set_xlabel('Structures (appearance)',fontsize=10) ## input X name
 axs[0].set_ylabel('Energy',fontsize=10) ## input Y name
 axs[0].tick_params(direction='in',labelsize=8)
-ydat = ydat[sorted_idx]
+
+ydat = all_y[sorted_idx]
+xdat = np.arange( len(all_y) )
+mask = ydat < 1e6
+xdat, ydat = xdat[mask], ydat[mask]
 axs[1].plot(xdat, ydat, marker='o', ms=4, lw=2, color='skyblue', label='All data',alpha=0.8)
 axs[1].set_xlabel('Structures (re-ordered)',fontsize=10) ## input X name
 axs[1].set_ylabel('Energy',fontsize=10) ## input Y name

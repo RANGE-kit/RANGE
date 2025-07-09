@@ -13,9 +13,153 @@ from ase import Atoms
 from ase.optimize import BFGS
 #from ase.io.trajectory import Trajectory
 from ase.io import write
+from ase.calculators.calculator import Calculator, all_changes
 
 import subprocess
 import shutil
+from itertools import combinations
+
+from RANGE_py.utility import get_UFF_para
+
+
+"""
+To replace the push apart function in previous versions, we use a rigid body optimizer
+that uses LJ to compute external DOF and freeze internal DOF
+"""
+class RigidLJQ_calculator(Calculator):
+    implemented_properties = ['energy', 'forces']
+
+    def __init__(self, templates, charge=None, epsilon=None, sigma=None, cutoff=10.0, 
+                 coulomb_const=14.3996, # eV·Å/e² (vacuum permittivity included)
+                 **kwargs):
+        """
+        Use function form: u_ij = 4 epsilon ( sigma^12/r_ij^12 - sigma^6/r_ij^6 )
+        templates: template of the cluster (generated from generate_bounds), to know individual molecules 
+            List of lists. Each sublist contains atom indices of one rigid molecule.
+        epsilon, sigma: LJ parameters. 
+            If single value, applies to all atoms. If dict, lookup table for element symbol -> value
+            
+        Note: This is not applicable for replace (where molecules are removed)
+        """
+        super().__init__(**kwargs)
+        self.cutoff = cutoff
+        self.coulomb_const = coulomb_const
+
+        # Create lookup for quick atom-to-molecule membership check
+        natom = 0 # index pointer
+        chemical_symbol_list = []
+        self.atom_to_mol = {}
+        self.mol_to_atom = {}
+        for i, mol in enumerate(templates): # loop all molecules
+            chemical_symbol_list += mol.get_chemical_symbols()
+            atom_index_in_this_mol = []
+            for idx in mol: # loop all atoms in this molecule
+                self.atom_to_mol[natom] = i  # This atom belongs to this mol
+                atom_index_in_this_mol.append( natom )
+                natom += 1
+            self.mol_to_atom[i] = atom_index_in_this_mol
+                
+        # Make sure LJ parameter is atom-specific
+        if isinstance(epsilon, (int, float)): # same value for all 
+            self.epsilon = [epsilon]*natom
+        elif isinstance(epsilon, dict): 
+            self.epsilon = [ epsilon[i] for i in chemical_symbol_list ] # User provided
+        else:
+            self.epsilon = [ get_UFF_para(i)[0] for i in chemical_symbol_list ] # Use UFF table
+
+        if isinstance(sigma, (int, float)): 
+            self.sigma = [sigma]*natom
+        elif isinstance(sigma, dict): 
+            self.sigma = [ sigma[i] for i in chemical_symbol_list ]
+        else:
+            self.sigma = [ get_UFF_para(i)[1] for i in chemical_symbol_list ]
+
+        # Atomic charge is also atom-specific
+        if isinstance(charge, list) and len(charge)!=natom: 
+            raise ValueError('Charge and molecules should have the same length: ', len(charge), natom)
+        elif charge is None:
+            self.charge = np.array([0]*natom)
+        else:
+            self.charge = np.array(charge, dtype=float)
+
+    def convert_force_to_rigid(self, all_positions, all_forces, dict_mol_to_atom):
+        new_forces = np.zeros_like(all_forces)
+        for mol in dict_mol_to_atom.values():
+            mol = np.array(mol)
+            pos = all_positions[mol]
+            pos_center  = np.mean(pos, axis=0)
+            frc = all_forces[mol]
+            total_force = np.sum(frc, axis=0) 
+
+            """
+            r_rel = pos - pos_center  # Dsiplacement from center
+            torque = np.sum(np.cross(r_rel, frc), axis=0)  # Torque
+            # Inertia tensor
+            Inertia = np.zeros((3, 3))
+            for i in range(len(mol)):
+                Inertia += (np.dot(r_rel[i], r_rel[i]) * np.identity(3) - np.outer(r_rel[i], r_rel[i]))
+            # Compute angular velocity (safe pseudo-inverse)
+            omega = np.linalg.pinv(Inertia) @ torque
+            """
+            
+            # Reconstruct rigid-body forces
+            for i, atom_idx in enumerate(mol):
+                f_trans = total_force/len(mol)
+                #f_rot = np.cross(omega, r_rel[i])
+                new_forces[atom_idx] = f_trans #+ f_rot
+        return new_forces        
+    
+    def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
+        super().calculate(atoms, properties, system_changes)
+        positions = atoms.get_positions()
+        natoms = len(positions)
+        forces = np.zeros_like(positions)
+        energy = 0.0
+
+        # Loop over unique atom pairs
+        for i, j in combinations(range(natoms), 2):
+            # Skip if in the same molecule (rigid body constraint)
+            if self.atom_to_mol[i] == self.atom_to_mol[j]:
+                continue
+                
+            #rij = positions[j] - positions[i]
+            rij = atoms.get_distance(i, j, mic=True, vector=True)
+            r = np.linalg.norm(rij)
+            if r > self.cutoff:
+                continue
+            elif r<1e-5:
+                r = 1e-5 # To avoid divided by zero when too close
+                
+            # Lennard-Jones Potential with Lorentz-Berthelot (LB)
+            sig = (self.sigma[i] + self.sigma[j] )/2
+            eps = np.sqrt(self.epsilon[i]*self.epsilon[j])
+            e_cutoff = 4 * eps * ((sig / self.cutoff) ** 12 - (sig / self.cutoff) ** 6) # energy at cutoff
+            
+            sr6 = (sig / r) ** 6
+            sr12 = sr6 * sr6
+            e_lj = 4*eps*(sr12 - sr6) - e_cutoff # Shift by cutoff energy to ensure continuous energy, although force will not be
+            # Force magnitude and direction
+            f_lj = -24 * eps / r * (2 * sr12 - sr6) # note the minus sign
+            f_lj = f_lj * (rij / r)
+            
+            # Coulomb e and f
+            q1,q2 = self.charge[i], self.charge[j]
+            e_coul = self.coulomb_const * q1 * q2 / r
+            f_coul = self.coulomb_const * q1 * q2 / (r ** 2)
+            f_coul = f_coul * (rij / r)
+            
+            # Apply force (Newton's 3rd law)
+            forces[i] += (f_lj + f_coul)
+            forces[j] -= (f_lj + f_coul)
+
+            energy += (e_lj + e_coul)
+            #print( e_lj , e_coul )
+
+        # Now, atoms in the same molecule need to have the same force
+        forces = self.convert_force_to_rigid( positions, forces, self.mol_to_atom )
+        
+        self.results['energy'] = energy 
+        self.results['forces'] = forces
 
 
 class energy_computation:
@@ -25,6 +169,7 @@ class energy_computation:
     """
     def __init__(self, templates, go_conversion_rule, 
                  calculator, calculator_type, geo_opt_para,
+                 if_coarse_calc = False, coarse_calc_eps = None, coarse_calc_sig = None, coarse_calc_chg = None, coarse_calc_step = 20, coarse_calc_fmax = 2
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -35,6 +180,13 @@ class energy_computation:
         self.calculator = calculator
         self.calculator_type = calculator_type
         self.geo_opt_para = geo_opt_para
+        
+        self.if_coarse_calc = if_coarse_calc
+        self.coarse_calc_eps = coarse_calc_eps
+        self.coarse_calc_sig = coarse_calc_sig
+        self.coarse_calc_chg = coarse_calc_chg
+        self.coarse_calc_step = coarse_calc_step 
+        self.coarse_calc_fmax = coarse_calc_fmax
 
     # Convert a vec X to 3D structure using template 
     def vector_to_cluster(self, vec):
@@ -167,6 +319,18 @@ class energy_computation:
         # To use ASE calculator
         if self.calculator_type == 'ase': 
             write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
+            
+            #if use coarse calc to pre-relax
+            if self.if_coarse_calc:
+                coarse_calc = RigidLJQ_calculator(self.templates, charge=self.coarse_calc_chg, 
+                                                  epsilon=self.coarse_calc_eps, sigma=self.coarse_calc_sig,
+                                                  )
+                atoms.calc = coarse_calc
+                dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
+                dyn = BFGS(atoms, logfile=dyn_log ) 
+                dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
+                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms )        
+            
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
             if self.geo_opt_para is not None:
@@ -295,3 +459,4 @@ class energy_computation:
         
         return energy 
     
+
