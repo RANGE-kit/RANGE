@@ -55,7 +55,7 @@ input_constraint_type = [#'at_position',
                          ]
 input_constraint_value = [#(0,0,0,0,0,0), 
                           #(0,(1.9, 2.1),1,0),
-                          (0,0,0,3,3,3)
+                          (0,0,0,5,5,5)
                           ]
 
 print( "Step 1: Setting cluster" )
@@ -77,13 +77,13 @@ computation = energy_computation(templates = cluster_template,
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
                                  calculator_type = 'ase', 
-                                 geo_opt_para = geo_opt_parameter, # None = single point calc, 
+                                 geo_opt_para = None, # None = single point calc, 
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
                                  coarse_calc_eps = None, 
                                  coarse_calc_sig = None, 
                                  coarse_calc_chg = [0.417, -0.834, 0.417]*10 , 
-                                 coarse_calc_step = 30, 
+                                 coarse_calc_step = 10, 
                                  coarse_calc_fmax = 2,
                                  )
 
@@ -91,7 +91,7 @@ computation = energy_computation(templates = cluster_template,
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=3, 
+                      colony_size=5, limit=20, max_iteration=10, 
                       ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name
                       )

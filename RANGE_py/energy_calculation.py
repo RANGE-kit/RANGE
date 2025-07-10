@@ -6,7 +6,6 @@ Created on Wed Jun  4 08:56:35 2025
 """
 
 import numpy as np
-#from scipy.spatial.transform import Rotation 
 import os
 
 from ase import Atoms
@@ -19,7 +18,7 @@ import subprocess
 import shutil
 from itertools import combinations
 
-from RANGE_py.utility import get_UFF_para
+from RANGE_py.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
 
 
 """
@@ -210,7 +209,7 @@ class energy_computation:
             if len(self.go_conversion_rule[i])==0: 
                 t = vec[6*i : 6*i+3]  # Cartesian coord in vec by default
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
-                m.euler_rotate(center=center_of_geometry, phi=euler[0], theta=euler[1], psi=euler[2])
+                m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 m.translate( t )
                 
             # The replacement function to replace atoms. If the atom symbol is X, it means a vaccancy.
@@ -235,7 +234,7 @@ class energy_computation:
             elif len(self.go_conversion_rule[i])==2:     
                 t = vec[6*i : 6*i+3]  # Cartesian coord in vec by default
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
-                m.euler_rotate(center=center_of_geometry, phi=euler[0], theta=euler[1], psi=euler[2])
+                m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 # Now we need to adjust the translation vector t
                 xlo, ylo, zlo = self.go_conversion_rule[i][0]
                 xhi, yhi, zhi = self.go_conversion_rule[i][1]
@@ -263,26 +262,31 @@ class energy_computation:
             # Check if we have sphere coord in vec. If so, we have 3 semi-axis values here and need to convert t (r, theta, phi) to cart coord
             elif len(self.go_conversion_rule[i])==3: 
                 t = vec[6*i : 6*i+3] 
-                x = t[0] * np.sin(t[2]*np.pi/180.) * np.cos(t[1]*np.pi/180.) * self.go_conversion_rule[i][0]
-                y = t[0] * np.sin(t[2]*np.pi/180.) * np.sin(t[1]*np.pi/180.) * self.go_conversion_rule[i][1]
-                z = t[0] * np.cos(t[2]*np.pi/180.) * self.go_conversion_rule[i][2]
+                x,y,z = ellipsoidal_to_cartesian_deg(t[0], t[1], t[2], 
+                                             self.go_conversion_rule[i][0], 
+                                             self.go_conversion_rule[i][1], 
+                                             self.go_conversion_rule[i][2])
                 t = np.array([x,y,z])
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
-                m.euler_rotate(center=center_of_geometry, phi=euler[0], theta=euler[1], psi=euler[2])
+                m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 m.translate( t )
                 
             # Check if we have the face information from on_surface. If so, we have 3 surface info: face ID, factor 1 and 2 to look for points in plane
-            # We also have the 3 rotation info to determine the orientation of molecule adsorbed on surface.
+            # We also have the 3 or 2 rotation info to determine the orientation of molecule adsorbed on surface.
             elif len(self.go_conversion_rule[i])>4:
                 t = vec[6*i : 6*i+6] 
                 face = self.go_conversion_rule[i][ 2+round(t[0]) ] # get the specific face info: 3 points + 1 surface adsorption normal point
-                adsorb_location = (face[1] - face[0])*t[1] +face[0]
-                adsorb_location += (face[2] - adsorb_location)*t[2]  + face[3]*t[3]
-                m.translate( adsorb_location - self.go_conversion_rule[i][0] )  # 0 = adsorbate_at_position
-                m.rotate( self.go_conversion_rule[i][1], face[3], center=adsorb_location)  # 1 = adsorbate_in_direction --> surf_norm 
-                m.rotate( t[4], face[3], center=adsorb_location )
-                m.rotate( t[5], 'x', center=adsorb_location )
+                adsorb_surf_vector = (face[1] - face[0])*t[1] +face[0]
+                adsorb_surf_vector += (face[2] - adsorb_surf_vector)*t[2]  
+                adsorb_location = adsorb_surf_vector + face[3]*t[3]
                 
+                template_adsorb_atom_location = m.positions[self.go_conversion_rule[i][0]] # 0 = adsorbate_at_position
+                template_adsorb_direction = m.positions[self.go_conversion_rule[i][1]] - template_adsorb_atom_location # 1 = direction atom
+                
+                m.translate( adsorb_location - template_adsorb_atom_location )  
+                m.rotate( template_adsorb_direction, face[3], center=adsorb_location)  # adsorbate_in_direction --> surf_norm 
+                m.rotate( t[4], face[3], center=adsorb_location )
+                #m.rotate( t[5], 'x', center=adsorb_location )
             else:
                 raise ValueError(f'go_conversion_rule has a strange length: {len(self.go_conversion_rule[i])}')
 
@@ -306,7 +310,82 @@ class energy_computation:
             
         return cluster
 
-    
+
+    def cluster_to_vector(self, cluster, vec):
+        """
+        Convert cluster (ASE atoms) to vector. 
+        """
+        atom_idx_header = 0 # to point to the atoms in cluster
+        vec_new = []
+        for i, mol_old in enumerate(self.templates):
+            mol_new = cluster[ atom_idx_header: atom_idx_header+len(mol_old) ]
+            atom_idx_header += len(mol_old) # Move to the next molecule
+            # positions of initial and final states
+            pos_old = mol_old.get_positions()
+            pos_new = mol_new.get_positions()
+            x, y, z, phi, theta, psi = get_translation_and_euler_from_positions(pos_old, pos_new)
+            
+            # Now convert x,y,z, phi, theta, psi to proper format
+            if len(self.go_conversion_rule[i])==0 or len(self.go_conversion_rule[i])==2: # position, inbox, outside inbox
+                vec_new += [x,y,z, phi, theta, psi] 
+                
+            elif len(self.go_conversion_rule[i])==1:  # Replace function needs no revision
+                vec_new += list(vec[6*i : 6*i+3])
+                
+            elif len(self.go_conversion_rule[i])==3: # Spherical coord
+                r_trans, theta_trans, phi_trans = cartesian_to_ellipsoidal_deg(x,y,z,
+                                                                               self.go_conversion_rule[i][0],
+                                                                               self.go_conversion_rule[i][1],
+                                                                               self.go_conversion_rule[i][2])
+                vec_new += [r_trans, theta_trans, phi_trans, phi, theta, psi]
+                
+            elif len(self.go_conversion_rule[i])>4: # on surface
+                surf_idx = vec[0] # remain the same surface index. Output's 1st value.
+                face = self.go_conversion_rule[i][ 2+surf_idx ]
+                # Where adsorbate atoms are now:                
+                adsorb_location_new = pos_new[ self.go_conversion_rule[i][0] ]
+                adsorb_direction_new = pos_new[ self.go_conversion_rule[i][1] ] - adsorb_location_new
+                # project adsorb atom on the surface
+                v = adsorb_location_new - face[0] # from p0 to adsorbate
+                distance = np.dot(v, face[3]) # distance from adsorbent to plane along surf norm. Also 4th value of output
+                projected_point = adsorb_location_new - distance*face[3] 
+                # Now we first find the intermediate point on p0-p1
+                v1 = face[1] - face[0]
+                v2 = projected_point - face[2]
+                A = np.column_stack([-v1, v2])
+                b = face[2] - face[0]
+                # Solve A @ [x1, x2] = b using least-squares. Only valid if lines intersect (or nearly do)
+                sol, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
+                x1, x2 = sol # The 2nd and 3rd value of output
+                # Lastly, the rotation angle along surf norm
+                mol_new.rotate( adsorb_direction_new, face[3], center=adsorb_location_new)
+                pos_new = mol_new.get_positions()
+                v_new = pos_new - np.mean(pos_new, axis=0)
+                v_old = pos_old - np.mean(pos_old, axis=0)
+                for n in range(len(v_new)):
+                    v1 = v_old[n] - np.dot(v_old[n], face[3]) * face[3]
+                    v2 = v_new[n] - np.dot(v_new[n], face[3]) * face[3]
+                    if np.linalg.norm(v1) > 1e-6 and np.linalg.norm(v2) > 1e-6:
+                        break
+                    else:
+                        raise ValueError("No atom suitable for computing rotation angle (all aligned with axis?)")
+                v1 = v1/ np.linalg.norm(v1) 
+                v2 = v2/ np.linalg.norm(v2)
+                dot = np.clip(np.dot(v1, v2), -1.0, 1.0)
+                cross = np.cross(v1, v2)
+                angle_rad = np.arccos(dot)
+                sign = np.sign(np.dot(cross, face[3]))
+                angle_deg = np.degrees(angle_rad) * sign
+                angle_deg = angle_deg % 360 # Normalize to 0-360
+                # Final output
+                vec_new += [surf_idx, x1, x2, distance, angle_deg, 0]
+                
+            else:
+                raise ValueError(f'go_conversion_rule has a strange length: {len(self.go_conversion_rule[i])}')
+
+        return np.array(vec_new)
+
+
     # The obj func for energy computing
     # Assign possible ways to compute energy
     def obj_func_compute_energy(self, vec, computing_id, save_output_directory):
@@ -329,7 +408,9 @@ class energy_computation:
                 dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
                 dyn = BFGS(atoms, logfile=dyn_log ) 
                 dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
-                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms )        
+                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
+                
+                vec = self.cluster_to_vector( atoms, vec )
             
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
@@ -362,7 +443,7 @@ class energy_computation:
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0
         #print( energy, computing_id)
-        return energy
+        return  vec, energy
     
         
     # Call the external tool to compute energy

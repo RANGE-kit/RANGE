@@ -10,21 +10,65 @@ import numpy as np
 import shutil
 import os
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
+from scipy.spatial.transform import Rotation 
 
 
-def cartesian_to_spherical(x, y, z):
-    """Converts Cartesian (x, y, z) to spherical (rho, theta, phi)."""
-    rho = np.sqrt(x**2 + y**2 + z**2)
-    theta = np.arctan2(y, x)
-    phi = np.arccos(z / rho)
+def cartesian_to_ellipsoidal_deg(x, y, z, A, B, C):
+    x_ = x / A
+    y_ = y / B
+    z_ = z / C
+    rho = np.sqrt(x_**2 + y_**2 + z_**2)
+    # Compute azimuthal angle θ in degrees (0 to 360°)
+    theta = np.degrees(np.arctan2(y_, x_))
+    if theta < 0:
+        theta += 360.0
+    # Compute inclination angle φ in degrees (0 to 180°)
+    if rho != 0:
+        phi = np.degrees(np.arccos(np.clip(z_ / rho, -1.0, 1.0)))
+    else:
+        phi = 0.0  # arbitrary when rho = 0
     return rho, theta, phi
 
-def spherical_to_cartesian(rho, theta, phi):
-    """Converts spherical (rho, theta, phi) to Cartesian (x, y, z)."""
-    x = rho * np.sin(phi) * np.cos(theta)
-    y = rho * np.sin(phi) * np.sin(theta)
-    z = rho * np.cos(phi)
+def ellipsoidal_to_cartesian_deg(rho, theta, phi, A, B, C):
+    # Use degree-based trig functions
+    sin_phi = np.sin(np.radians(phi))
+    cos_phi = np.cos(np.radians(phi))
+    cos_theta = np.cos(np.radians(theta))
+    sin_theta = np.sin(np.radians(theta))
+    x = A * rho * sin_phi * cos_theta
+    y = B * rho * sin_phi * sin_theta
+    z = C * rho * cos_phi
     return x, y, z
+
+def rotate_atoms_by_euler(atoms, center_of_geometry, phi, theta, psi):
+    pos = atoms.get_positions() - center_of_geometry
+    rot = Rotation.from_euler('ZXZ', [phi, theta, psi], degrees=True)
+    Rmat = rot.as_matrix()  # Create ZXZ rotation matrix
+    new_pos = pos @ Rmat.T + center_of_geometry
+    atoms.set_positions(new_pos)
+    return atoms
+
+def get_translation_and_euler_from_positions(pos_start, pos_final):
+    centroid_start = np.mean(pos_start, axis=0)
+    centroid_final = np.mean(pos_final, axis=0)
+    p_start = pos_start - centroid_start
+    p_final = pos_final - centroid_final
+    # Best-fit rotation matrix using Kabsch algorithm
+    H = p_start.T @ p_final
+    U, _, Vt = np.linalg.svd(H)
+    R_matrix = Vt.T @ U.T
+    # Correct improper rotation if needed
+    if np.linalg.det(R_matrix) < 0:
+        Vt[-1, :] *= -1
+        R_matrix = Vt.T @ U.T
+    # Extract Euler angles in ZXZ
+    rot = Rotation.from_matrix(R_matrix)
+    phi, theta, psi = rot.as_euler('ZXZ', degrees=True)
+    # Translation vector
+    rotated_centroid = R_matrix @ centroid_start
+    translation_vector = centroid_final - rotated_centroid
+    x, y, z = translation_vector
+    return   x, y, z, phi, theta, psi
 
 def project_points_onto_vector(points, vector):
     v = np.array(vector)

@@ -55,7 +55,8 @@ class GA_ABC():
         self.y, self.pool_name = [], []
         for n, initial_x_guess in enumerate(self.x):
             compute_id = self.output_header + f'0_{n}'
-            initial_y = self.func(initial_x_guess, compute_id, self.output_directory)
+            initial_x_guess, initial_y = self.func(initial_x_guess, compute_id, self.output_directory)
+            self.x[n] = initial_x_guess
             self.y.append( initial_y )
             self.pool_name.append( compute_id )
         self.y = np.array( self.y )
@@ -71,7 +72,7 @@ class GA_ABC():
         
     # Greedy update by calculating cost function
     def _greedy(self, i , cand, compute_id):
-        y_cand = self.func( cand , compute_id, self.output_directory )
+        cand, y_cand = self.func( cand , compute_id, self.output_directory )
         if y_cand < self.y[i]:
             self.x[i] ,self.y[i] = cand, y_cand
             self.trial[i] = 0
@@ -107,7 +108,8 @@ class GA_ABC():
         # y_off = np.apply_along_axis(self.func, 1, offspring)
         y_off = []
         for i, x_off in enumerate(offspring):
-            y_ = self.func( x_off , compute_id + str(i), self.output_directory )
+            x_off, y_ = self.func( x_off , compute_id + str(i), self.output_directory )
+            offspring[i] = x_off
             y_off.append( y_ )
             offspring_compute_id.append( compute_id + str(i) )
         y_off = np.array(y_off)
@@ -160,7 +162,7 @@ class GA_ABC():
                 if self.trial[i] >= self.limit:
                     self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
                     new_id = self.output_header + f'{it}_sc_{i}'
-                    self.y[i] = self.func(self.x[i], new_id , self.output_directory )
+                    self.x[i], self.y[i] = self.func(self.x[i], new_id , self.output_directory )
                     self.trial[i] = 0
                     self.pool_x = np.append( self.pool_x, [self.x[i]], axis=0 )
                     self.pool_y = np.append( self.pool_y, [self.y[i]], axis=0 )

@@ -149,7 +149,7 @@ class cluster_model:
                     int: atom index from this molecule to define the orientation of molecule
                 Output is the boundary of 6 variables:
                     For binding location (3): index of face (from 0,1,2...), factor1 and factor2 for a point on this surface
-                    For binding distance and angle (3) : binding distance(lo,hi), rotation angle along surf_norm axis, rotate along X
+                    For binding distance and angle (3) : binding distance(lo,hi), rotation angle along surf_norm axis, Null (rotate to surf)
                 
                 length of conversion_rule_para >= 2+3
                 """
@@ -166,8 +166,8 @@ class cluster_model:
                     
                 # Get current molecule information. Will save them to conversion_rule
                 self._move_a_molecule(new_mol, (0,0,0), [0,0,0] ) #move molecule to (0,0,0) since we don't know the exact location yet
-                adsorbate_at_position  = new_mol.positions[ self.constraint_value[n][2] ]
-                adsorbate_in_direction = new_mol.positions[ self.constraint_value[n][3] ] - adsorbate_at_position
+                adsorbate_at_position  = self.constraint_value[n][2] # new_mol.positions[ self.constraint_value[n][2] ]
+                adsorbate_in_direction = self.constraint_value[n][3] # new_mol.positions[ self.constraint_value[n][3] ] - adsorbate_at_position
 
                 # Save the surface information of substrate for future use
                 # Put together the position of three vertices and surface normal direction
@@ -181,16 +181,16 @@ class cluster_model:
                     conversion_rule_para.append( tuple(p) )  
                 conversion_rule_para = tuple( conversion_rule_para ) # Length will be >2+3, depending on how many faces
                 
-                bound = [ (-0.499, number_of_faces-1+0.499), (0,1), (0,1) , self.constraint_value[n][1], (0,360), (0,90)]
+                bound = [ (-0.499, number_of_faces-1+0.499), (0,1), (0,1) , self.constraint_value[n][1], (0,360), (0,0)]
                 
             elif self.constraint_type[n] == 'replace':
                 """
                 Replace certain atoms in another substrate molecule defined by fixed position
                 Input parameter is: 
-                    int: molecualr index of the substrate molecule. (Keeping this for future flexibility)
+                    int: molecualr index of the substrate molecule. (Keeping this for future flexibility) Currently must be 0.
                     tuple of int (replacement list): the atom index to be replaced in the substrate
                 Output parameter (so far):
-                    the index of items in the replacement list + not used*5
+                    the index of items in the replacement list + not used*5 (to keep length as 6)
                 
                 length of conversion_rule_para is 1
                 """
