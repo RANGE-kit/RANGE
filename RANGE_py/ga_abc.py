@@ -8,6 +8,7 @@ Created on Wed Jun  4 08:55:16 2025
 import numpy as np
 import os
 import time
+from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory
 
 
 class GA_ABC():
@@ -23,7 +24,10 @@ class GA_ABC():
                  
                  output_directory = 'results',
                  output_header = 'compute_',
+                 output_database = 'structure_pool.db',
                  
+                 restart_from_pool = None,
+                 restart_strategy = 'lowest'
                 ):
         """
         obf_func: callable, function to provide target for minimize
@@ -43,25 +47,44 @@ class GA_ABC():
         
         self.output_header = output_header
         self.output_directory = output_directory
+        if output_database is not None:
+            self.output_database = output_database
+        
+        self.restart_from_pool = restart_from_pool
+        self.restart_strategy =restart_strategy
         
         self.rng = np.random.default_rng()
 
-    # Initial colony from random generation
+    # Initial colony from random generation if not restarting
     def _init_colony(self):
-        lo, hi = self.bounds.T   # each is a 1D array, shape = D
-        self.x = lo + (hi-lo)*np.random.rand( self.colony_size, self.bounds_dimension )  # get input X, shape = N*D
-        # Replace: self.y = np.apply_along_axis(self.func, 1, self.x)  to save output file
-        os.makedirs(self.output_directory, exist_ok=True)
-        self.y, self.pool_name = [], []
-        for n, initial_x_guess in enumerate(self.x):
-            compute_id = self.output_header + f'0_{n}'
-            initial_x_guess, initial_y = self.func(initial_x_guess, compute_id, self.output_directory)
-            self.x[n] = initial_x_guess
-            self.y.append( initial_y )
-            self.pool_name.append( compute_id )
-        self.y = np.array( self.y )
-        self.trial = np.zeros( self.colony_size , int)  # trial counter
-        self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) 
+        if self.restart_from_pool is not None:   # Read existing database
+            if os.path.exists(self.restart_from_pool):
+                if os.path.isfile(self.restart_from_pool): # From .db file
+                    self.x, self.y, names = read_structure_from_db( self.restart_from_pool, self.restart_strategy, self.colony_size )
+                elif os.path.isdir(self.restart_from_pool):  # From results directory. This may be slow.
+                    self.x, self.y, names = read_structure_from_directory( self.restart_from_pool, self.restart_strategy, self.colony_size )
+                else:
+                    raise ValueError(f'{self.restart_from_pool} cannot be read')
+                self.trial = np.zeros( self.colony_size , int)  # trial counter
+                self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) 
+                self.pool_name = list(names)
+            else:
+                raise ValueError(f'{self.restart_from_pool} does not exist')
+        else:
+            lo, hi = self.bounds.T   # each is a 1D array, shape = D
+            self.x = lo + (hi-lo)*np.random.rand( self.colony_size, self.bounds_dimension )  # get input X, shape = N*D
+            os.makedirs(self.output_directory, exist_ok=True)
+            self.y, self.pool_name = [], []
+            for n, initial_x_guess in enumerate(self.x):
+                compute_id = self.output_header + f'0_{n}'
+                initial_x_guess, initial_y, atoms = self.func(initial_x_guess, compute_id, self.output_directory)
+                save_structure_to_db(atoms, initial_x_guess, initial_y, compute_id, self.output_database )
+                self.x[n] = initial_x_guess
+                self.y.append( initial_y )
+                self.pool_name.append( compute_id )
+            self.y = np.array( self.y )
+            self.trial = np.zeros( self.colony_size , int)  # trial counter
+            self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
         
     # Generate new candidate around solution i
     def _neighbor_search(self, i): 
@@ -72,7 +95,8 @@ class GA_ABC():
         
     # Greedy update by calculating cost function
     def _greedy(self, i , cand, compute_id):
-        cand, y_cand = self.func( cand , compute_id, self.output_directory )
+        cand, y_cand, atoms = self.func( cand , compute_id, self.output_directory )
+        save_structure_to_db(atoms, cand, y_cand, compute_id, self.output_database )
         if y_cand < self.y[i]:
             self.x[i] ,self.y[i] = cand, y_cand
             self.trial[i] = 0
@@ -105,10 +129,10 @@ class GA_ABC():
             offspring.append(child)
         offspring = np.array(offspring)
         # Replace the worst parents by offspring
-        # y_off = np.apply_along_axis(self.func, 1, offspring)
         y_off = []
         for i, x_off in enumerate(offspring):
-            x_off, y_ = self.func( x_off , compute_id + str(i), self.output_directory )
+            x_off, y_ , atoms = self.func( x_off , compute_id + str(i), self.output_directory )
+            save_structure_to_db(atoms, x_off, y_, compute_id + str(i), self.output_database )
             offspring[i] = x_off
             y_off.append( y_ )
             offspring_compute_id.append( compute_id + str(i) )
@@ -162,7 +186,8 @@ class GA_ABC():
                 if self.trial[i] >= self.limit:
                     self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
                     new_id = self.output_header + f'{it}_sc_{i}'
-                    self.x[i], self.y[i] = self.func(self.x[i], new_id , self.output_directory )
+                    self.x[i], self.y[i] , atoms = self.func(self.x[i], new_id , self.output_directory )
+                    save_structure_to_db(atoms, self.x[i], self.y[i], new_id, self.output_database )
                     self.trial[i] = 0
                     self.pool_x = np.append( self.pool_x, [self.x[i]], axis=0 )
                     self.pool_y = np.append( self.pool_y, [self.y[i]], axis=0 )

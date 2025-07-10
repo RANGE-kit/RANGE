@@ -9,7 +9,7 @@ Created on Wed Jun  4 09:09:47 2025
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
 from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
-from RANGE_py.utility import save_energy_summary, save_best_structure
+from RANGE_py.input_output import save_energy_summary, save_best_structure
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,7 +40,7 @@ co2 = 'xyz_structures/CO2.xyz'
 #O_atoms_idx_in_slab = tuple([at.index for at in read(slab_surface) if at.symbol=='O'])
 
 input_molecules = [water]#, co2]
-input_num_of_molecules = [10]#, 1]
+input_num_of_molecules = [5]#, 1]
  
 '''
 at_position : X,Y,Z, (Euler_X, Euler_Y, Euler_Z)
@@ -55,7 +55,7 @@ input_constraint_type = [#'at_position',
                          ]
 input_constraint_value = [#(0,0,0,0,0,0), 
                           #(0,(1.9, 2.1),1,0),
-                          (0,0,0,5,5,5)
+                          (0,0,0,4,4,4)
                           ]
 
 print( "Step 1: Setting cluster" )
@@ -82,18 +82,20 @@ computation = energy_computation(templates = cluster_template,
                                  if_coarse_calc = True, 
                                  coarse_calc_eps = None, 
                                  coarse_calc_sig = None, 
-                                 coarse_calc_chg = [0.417, -0.834, 0.417]*10 , 
+                                 coarse_calc_chg = [0.417, -0.834, 0.417]*5 , 
                                  coarse_calc_step = 10, 
-                                 coarse_calc_fmax = 2,
+                                 coarse_calc_fmax = 10,
                                  )
 
 # Put together and run the algorithm
-output_folder_name = 'results'
+output_folder_name = 'results-1'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
                       colony_size=5, limit=20, max_iteration=10, 
                       ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
-                      output_directory = output_folder_name
+                      output_directory = output_folder_name,
+                      # Restart option
+                      restart_from_pool = 'structure_pool.db',
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1)
 

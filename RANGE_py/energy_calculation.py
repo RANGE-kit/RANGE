@@ -11,7 +11,7 @@ import os
 from ase import Atoms
 from ase.optimize import BFGS
 #from ase.io.trajectory import Trajectory
-from ase.io import write
+from ase.io import read, write
 from ase.calculators.calculator import Calculator, all_changes
 
 import subprocess
@@ -19,6 +19,7 @@ import shutil
 from itertools import combinations
 
 from RANGE_py.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
+from RANGE_py.input_output import get_CP2K_run_info
 
 
 """
@@ -395,23 +396,26 @@ class energy_computation:
         new_cumpute_directory = os.path.join(save_output_directory,computing_id)
         os.makedirs( new_cumpute_directory, exist_ok=True)   
         
-        # To use ASE calculator
-        if self.calculator_type == 'ase': 
-            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
-            
-            #if use coarse calc to pre-relax
-            if self.if_coarse_calc:
-                coarse_calc = RigidLJQ_calculator(self.templates, charge=self.coarse_calc_chg, 
-                                                  epsilon=self.coarse_calc_eps, sigma=self.coarse_calc_sig,
-                                                  )
-                atoms.calc = coarse_calc
-                dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
-                dyn = BFGS(atoms, logfile=dyn_log ) 
-                dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
-                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
+        # Log the starting structure
+        write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
+        
+        # if use coarse calc to pre-relax
+        if self.if_coarse_calc:
+            coarse_calc = RigidLJQ_calculator(self.templates, charge=self.coarse_calc_chg, 
+                                              epsilon=self.coarse_calc_eps, sigma=self.coarse_calc_sig,
+                                              )
+            atoms.calc = coarse_calc
+            dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
+            dyn = BFGS(atoms, logfile=dyn_log ) 
+            dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
+            write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
                 
-                vec = self.cluster_to_vector( atoms, vec )
+            vec = self.cluster_to_vector( atoms, vec )            
             
+        # Vec is finalized now. Log the vector that we will use to start calculation
+        np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')                
+        
+        if self.calculator_type == 'ase':   # To use ASE calculator
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
             if self.geo_opt_para is not None:
@@ -434,16 +438,17 @@ class energy_computation:
                     energy = atoms.get_potential_energy()
                 except:
                     energy = 1e8 # Cannot compute energy
+                    
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
-            np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')
+            np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
                 
         elif self.calculator_type == 'external': # To use external command
-            energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
+            atoms, energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
             
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0
-        #print( energy, computing_id)
-        return  vec, energy
+
+        return  vec, energy, atoms
     
         
     # Call the external tool to compute energy
@@ -470,17 +475,21 @@ class energy_computation:
 
         Returns
         -------
+        atoms: ASE atoms
         energy : float
             The energy of this ASE obj (atoms).
 
         """
         
-        # Go to the job folder and create the input xyz
+        # Know which file to use as initial structure
+        start_xyz = 'start.xyz'
+        if self.if_coarse_calc:
+            start_xyz = 'coarse_final.xyz'
+        
+        # Go to the job folder and update the input 
         current_directory = os.getcwd()
         os.chdir(job_directory)
-        write( 'start.xyz', atoms )
-                
-        calculator_command_lines = calculator_command_lines.replace('{input_xyz}', 'start.xyz')
+        calculator_command_lines = calculator_command_lines.replace('{input_xyz}', start_xyz)
 
         # Compute
         if geo_opt_para_line['method'] == 'xTB':
@@ -495,6 +504,7 @@ class energy_computation:
                     shutil.copyfile( 'xtbopt.xyz' , 'final.xyz' )
                 elif os.path.exists( 'xtblast.xyz' ):
                     shutil.copyfile( 'xtblast.xyz' , 'final.xyz' )
+                atoms = read('final.xyz')
                 # Now get the energy
                 with open('job.log','r') as f1:
                     energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
@@ -504,9 +514,11 @@ class energy_computation:
                 elif len(energy1)>0:
                     energy = float(energy1[-1][4]) 
                 else:
-                    energy = 1e7 # Optimization done but no energy written. This is rare.
+                    energy = 1e10 # Optimization done but no energy written. This should not happen.
             except:
                 energy = 1e8  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
+                atoms = read(start_xyz)
+                
         elif geo_opt_para_line['method'] == 'CP2K':
             if 'input' in geo_opt_para_line: # Check if CP2K input is ready
                 if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
@@ -514,8 +526,9 @@ class energy_computation:
                 elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
                     CP2K_input = os.path.join(current_directory, geo_opt_para_line['input'])
                 else:
-                    raise ValueError('CP2K input is not found from key path')
+                    raise ValueError('CP2K input is not found from key path')                   
                 # Run CP2K
+                shutil.copyfile( start_xyz , 'data-CP2K-initial.xyz' )
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', CP2K_input)
                 try:
                     result = subprocess.run(calculator_command_lines, 
@@ -526,9 +539,13 @@ class energy_computation:
                     with open('job.log','r') as f1:
                         energy = [line.split() for line in f1.readlines() if "Total energy: " in line ]
                     energy = float(energy[-1][2]) # last energy. Value is the 3rd item
+                    # Get the final xyz from either initial or optimized xyz, depending on input runtype
+                    atoms = get_CP2K_run_info(CP2K_input, start_xyz)
+                    
                 except subprocess.CalledProcessError as e:
                     print( job_directory , e.stderr)
-                    energy = 1e7
+                    energy = 1e8
+                    atoms = read(start_xyz)
 
             else:
                 raise NameError('CP2K input is not provided by input key')
@@ -538,6 +555,6 @@ class energy_computation:
         # Go back to the main folder
         os.chdir(current_directory)
         
-        return energy 
+        return atoms, energy 
     
 

@@ -1,8 +1,8 @@
 #CP2K
 #Settings:
 @set RUNTYPE  ENERGY  ## GEO_OPT or MD
-@set FNAME    pore
-@set XYZ_FILE start.xyz
+@set FNAME    range
+@set XYZ_FILE data-CP2K-initial.xyz
 @set DATA_DIR /global/cfs/cdirs/m3269/difan/cp2k_basis_and_potentials
 #Inputs:
 @set TEMP     298.0

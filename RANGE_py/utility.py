@@ -7,8 +7,7 @@ Created on Wed Jun  4 09:10:17 2025
 
 # Utility functions
 import numpy as np
-import shutil
-import os
+
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
 from scipy.spatial.transform import Rotation 
 
@@ -94,23 +93,6 @@ def compare_two_vec_difference(pool_vec, new_vec, tol=0.01):
     diff = np.mean( np.abs((pool_vec - v)/v) , axis=1 )
     return diff #np.amin( diff )
 
-def save_energy_summary(write_index_order, ydata, yname, output_file):
-    ydata = np.round(ydata, 6)
-    with open( output_file, 'w') as f1_out:
-        output_line = "Index".ljust(8) + " | " + "Appear".ljust(8) + " | " + "Energy".ljust(12) + " | " + "Compute_id \n"
-        f1_out.write(output_line)
-        for n, idx in enumerate(write_index_order):
-            output_line = f"{n:8d} | {idx:8d} | {ydata[idx]:.12g} | {yname[idx]} \n"
-            f1_out.write(output_line)
-            
-def save_best_structure(output_directory, compute_id, save_file_path):
-    job_path = os.path.join(output_directory , compute_id)
-    if os.path.exists( os.path.join(job_path, 'final.xyz') ):
-        shutil.copyfile( os.path.join(job_path, 'final.xyz') , save_file_path )
-    elif os.path.exists( os.path.join(job_path, 'start.xyz') ):
-        shutil.copyfile( os.path.join(job_path, 'start.xyz') , save_file_path )
-    else:
-        raise ValueError('Path ID is set to a wrong value: ', compute_id )
         
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
