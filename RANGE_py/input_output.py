@@ -10,16 +10,7 @@ import numpy as np
 
 from ase.io import read
 from ase.db import connect
-
-
-def save_energy_summary(write_index_order, ydata, yname, output_file):
-    ydata = np.round(ydata, 6)
-    with open( output_file, 'w') as f1_out:
-        output_line = "Index".ljust(8) + " | " + "Appear".ljust(8) + " | " + "Energy".ljust(12) + " | " + "Compute_id \n"
-        f1_out.write(output_line)
-        for n, idx in enumerate(write_index_order):
-            output_line = f"{n:8d} | {idx:8d} | {ydata[idx]:.12g} | {yname[idx]} \n"
-            f1_out.write(output_line)
+            
             
 def save_best_structure(output_directory, compute_id, save_file_path):
     job_path = os.path.join(output_directory , compute_id)
@@ -29,6 +20,13 @@ def save_best_structure(output_directory, compute_id, save_file_path):
         shutil.copyfile( os.path.join(job_path, 'start.xyz') , save_file_path )
     else:
         raise ValueError('Path ID is set to a wrong value: ', compute_id )
+        
+def clean_directory(dir_path):
+    for entry in os.scandir(dir_path):
+        if entry.is_file() or entry.is_symlink():
+            os.remove(entry.path)
+        elif entry.is_dir():
+            shutil.rmtree(entry.path)
         
 def save_structure_to_db(atoms, vector, energy, name, db_path, **kwargs):
     """
@@ -104,3 +102,48 @@ def get_CP2K_run_info(CP2K_input_script_file, initial_xyz):
                 if entry.is_file() and xyz_name in entry and '.xyz' in entry:
                     atoms = read(entry, index='-1') # The last frame of traj
     return atoms
+
+def save_energy_summary(output_file='energy_summary.log', 
+                        db_path='structure_pool.db', 
+                        directory_path='results'):
+    # Search data
+    if os.path.exists( db_path ): # Method 1: use .db
+        vec, energy, name = read_structure_from_db( db_path, 'all', None )
+        print('Read data from db')
+    elif os.path.exists( directory_path ): # Method 2: use directory
+        vec, energy, name = read_structure_from_directory( directory_path, 'all', None )
+        print('Read data from directory')
+    else:
+        raise ValueError('No result is found' )
+    # Sort energy and write summary file
+    sorted_idx = np.argsort(energy)
+    energy = np.round(energy, 6)
+    ranked_idxs, appear_idxs, ranked_energies, iteration_idxs, operator_types, full_name = [],[],[],[],[],[]
+    with open( output_file, 'w') as f1_out:
+        output_line = "Index".rjust(8) + "Appear".rjust(8) + "Energy".rjust(16)  
+        output_line += "Iteration".rjust(10) + "Operation".rjust(10) + " Full_ID".ljust(30)+" \n"
+        f1_out.write(output_line)
+        for n, idx in enumerate(sorted_idx):
+            m = name[idx].split('_')
+            appear_idx = int(m[1])
+            iteration_idx = int(m[3])
+            operator_type = m[4].upper()
+            output_line = f"{n:8d}{appear_idx:8d}{energy[idx]:16.6g}"
+            output_line += f"{iteration_idx:10d}{operator_type:>10} {name[idx]}\n"
+            f1_out.write(output_line)
+            # Keep for future use
+            ranked_idxs.append(n)
+            appear_idxs.append(appear_idx)
+            ranked_energies.append(energy[idx])
+            iteration_idxs.append(iteration_idx)
+            operator_types.append(operator_type)  
+            full_name.append(name[idx])
+    data_dict = {'ranked_id': np.array(ranked_idxs, dtype=int), 
+                 'appear_id': np.array(appear_idxs, dtype=int), 
+                 'ranked_ener': np.array(ranked_energies, dtype=float), 
+                 'unranked_ener': energy, 
+                 'iter_id': np.array(iteration_idxs, dtype=int), 
+                 'op_type': np.array(operator_types, dtype=str),
+                 'ranked_full_name': np.array(full_name, dtype=str),
+                 }
+    return data_dict

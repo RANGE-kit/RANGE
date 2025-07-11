@@ -8,7 +8,7 @@ Created on Wed Jun  4 08:55:16 2025
 import numpy as np
 import os
 import time
-from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory
+from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, clean_directory
 
 
 class GA_ABC():
@@ -148,7 +148,7 @@ class GA_ABC():
         return offspring, y_off, offspring_compute_id
         
     # The main loop 
-    def run(self, print_interval=None):
+    def run(self, print_interval=None, save_output_level='Full'):            
         start_time = time.time()
 
         self._init_colony() 
@@ -158,10 +158,12 @@ class GA_ABC():
 
         # Keep all the results. Do we need it? The input x will be passed to calculator. 
         # It will be converted to XYZ before calculation. We can save/keep results there.
-
         lo, hi = self.bounds.T
         current_time = time.time() - start_time
-        print( 'Start iteration. Current time cost: ', current_time )
+        # Kepp log info as we run 
+        with open("log_of_RANGE.log", 'w') as f1:
+            f1.write( f"Start iteration based on initial pool of {len(self.y)} solutions. Current time cost: {round(current_time,3)}\n" )
+            
         for it in range(1, self.max_iteration+1):
             #  employed phase
             for i in range(self.colony_size):
@@ -202,7 +204,7 @@ class GA_ABC():
 
             #  hybrid GA phase
             if it % self.ga_interval == 0:
-                print( 'Calling GA at iteration: ', it )
+                #print( 'Calling GA at iteration: ', it )
                 new_x_ga, new_y_ga, new_id = self._ga_step( it )
                 self.pool_x = np.append( self.pool_x, new_x_ga, axis=0 )
                 self.pool_y = np.append( self.pool_y, new_y_ga, axis=0 )
@@ -217,13 +219,19 @@ class GA_ABC():
             if self.y[best_idx] < best_y:
                 best_x = np.copy( self.x[best_idx] )
                 best_y = np.copy( self.y[best_idx] )
-
+                
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
                     current_time = time.time() - start_time
-                    output_line = f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.9g} | best all-time y = {best_y:.9g}"
-                    output_line += f" | Total structures considered: {len(self.pool_y.flatten()) } {self.global_structure_index-1}"
-                    output_line += f" | Current time cost(s): {current_time} | Average cost per calc(s): {current_time/(self.global_structure_index-1)}"
-                    print(output_line)
+                    output_line = f"Iteration {it:5d} | best Y= {np.round(self.y[best_idx],6):16.6f} | All-time best Y= {np.round(best_y,6):16.6f}"
+                    output_line += f" | Total X: {self.global_structure_index:9d}"
+                    output_line += f" | Total time cost(s): {round(current_time,3):16.2f} | Cost per X(s): {round(current_time/(self.global_structure_index),3):8.2f}"
+                    with open("log_of_RANGE.log", 'a') as f1:
+                        f1.write( output_line+'\n' )
+                    
+            if save_output_level=='Full' :
+                continue
+            elif save_output_level=='Clean' :
+                clean_directory(self.output_directory)
         
         return self.pool_x, self.pool_y, self.pool_name

@@ -411,11 +411,9 @@ class energy_computation:
             dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
             write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
                 
-            vec = self.cluster_to_vector( atoms, vec )            
-            
-        # Vec is finalized now. Log the vector that we will use to start calculation
-        np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')                
-        
+            vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure       
+                          
+        # The fine optimization
         start_time = time.time()
         if self.calculator_type == 'ase':   # To use ASE calculator
             atoms.calc = self.calculator
@@ -433,6 +431,7 @@ class energy_computation:
                 try:                    
                     dyn.run( fmax=fmax, steps=steps )
                     energy = atoms.get_potential_energy()
+                    vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
                 except:
                     energy = 1e7 # Cannot optimize properly to get energy
             else:
@@ -440,19 +439,25 @@ class energy_computation:
                     energy = atoms.get_potential_energy()
                 except:
                     energy = 1e8 # Cannot compute energy
-                    
-            write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
-            np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
-                
+
         elif self.calculator_type == 'external': # To use external command
             atoms, energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
+            vec = self.cluster_to_vector( atoms, vec )      
             
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0
+            
+        else:
+            raise ValueError('calculator_type is not supported')
 
+        # Vec, structure and energy are all finalized now. 
+        np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')  
+        write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
+        np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
+        
         current_time = time.time() - start_time
-        print( 'Time track for ',computing_id, ' is (in s): ',current_time  )
-
+        print( 'Time cost track for ',computing_id, ' is (in s): ',current_time  )
+        
         return  vec, energy, atoms
     
         
