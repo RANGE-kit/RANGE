@@ -8,7 +8,7 @@ Created on Wed Jun  4 09:09:47 2025
 
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
+from RANGE_py.energy_calculation import energy_computation
 from RANGE_py.input_output import save_energy_summary, save_best_structure
 
 import numpy as np
@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 import os
 
 #from ase.visualize import view
-from ase.visualize.plot import plot_atoms
-from ase.io import read, write
+#from ase.visualize.plot import plot_atoms
+#from ase.io import read, write
 
 #from ase.calculators.emt import EMT
 #from tblite.ase import TBLite

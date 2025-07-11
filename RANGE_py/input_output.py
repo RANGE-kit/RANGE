@@ -65,12 +65,14 @@ def read_structure_from_directory( directory_path, selection_strategy, num_of_st
     vec, ener, name = select_vector_and_energy(vec, ener, name, selection_strategy, num_of_strutures)
     return  vec, ener, name
 
-def select_vector_and_energy(vector,energy, names, selection_strategy, num_of_strutures):
-    if selection_strategy == 'lowest': # select from the lowest structure
+def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_strutures):
+    if selection_strategy=='all' or selection_strategy==None or num_of_strutures==len(energy): # All data
+        idx = np.arange(len(energy))
+    elif selection_strategy == 'lowest': # select from the lowest structure
         sorted_idx = np.argsort(energy)  # Sort energy from low to high
         # Pick N structures from 2N candidates (with the lowest E)
         idx = np.random.choice(sorted_idx[:num_of_strutures*2], size=num_of_strutures, replace=False) 
-    elif selection_strategy == 'highest': # select from the lowest structure
+    elif selection_strategy == 'highest': 
         sorted_idx = np.argsort(energy)[::-1]  
         idx = np.random.choice(sorted_idx[:num_of_strutures*2], size=num_of_strutures, replace=False) 
     elif selection_strategy == 'random':
