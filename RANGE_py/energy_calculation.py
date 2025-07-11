@@ -17,6 +17,7 @@ from ase.calculators.calculator import Calculator, all_changes
 import subprocess
 import shutil
 from itertools import combinations
+import time
 
 from RANGE_py.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
 from RANGE_py.input_output import get_CP2K_run_info
@@ -415,6 +416,7 @@ class energy_computation:
         # Vec is finalized now. Log the vector that we will use to start calculation
         np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')                
         
+        start_time = time.time()
         if self.calculator_type == 'ase':   # To use ASE calculator
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
@@ -447,6 +449,9 @@ class energy_computation:
             
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0
+
+        current_time = time.time() - start_time
+        print( 'Time track for ',computing_id, ' is (in s): ',current_time  )
 
         return  vec, energy, atoms
     

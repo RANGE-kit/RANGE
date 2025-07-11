@@ -54,6 +54,7 @@ class GA_ABC():
         self.restart_strategy =restart_strategy
         
         self.rng = np.random.default_rng()
+        self.global_structure_index = 0
 
     # Initial colony from random generation if not restarting
     def _init_colony(self):
@@ -76,7 +77,8 @@ class GA_ABC():
             os.makedirs(self.output_directory, exist_ok=True)
             self.y, self.pool_name = [], []
             for n, initial_x_guess in enumerate(self.x):
-                compute_id = self.output_header + f'0_{n}'
+                compute_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_0_sc_{n}'
+                self.global_structure_index += 1
                 initial_x_guess, initial_y, atoms = self.func(initial_x_guess, compute_id, self.output_directory)
                 save_structure_to_db(atoms, initial_x_guess, initial_y, compute_id, self.output_database )
                 self.x[n] = initial_x_guess
@@ -116,7 +118,7 @@ class GA_ABC():
             child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
         return child    
         
-    def _ga_step(self, compute_id):
+    def _ga_step(self, iteration_idx):
         # select elite parents from the best candidates
         elite_idx = np.argsort(self.y)[:self.ga_parents] 
         parents = self.x[elite_idx]
@@ -131,11 +133,13 @@ class GA_ABC():
         # Replace the worst parents by offspring
         y_off = []
         for i, x_off in enumerate(offspring):
-            x_off, y_ , atoms = self.func( x_off , compute_id + str(i), self.output_directory )
-            save_structure_to_db(atoms, x_off, y_, compute_id + str(i), self.output_database )
+            compute_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{iteration_idx}_ga_{i}' 
+            self.global_structure_index += 1
+            x_off, y_ , atoms = self.func( x_off , compute_id , self.output_directory )
+            save_structure_to_db(atoms, x_off, y_, compute_id , self.output_database )
             offspring[i] = x_off
             y_off.append( y_ )
-            offspring_compute_id.append( compute_id + str(i) )
+            offspring_compute_id.append( compute_id )
         y_off = np.array(y_off)
         worst_idx = np.argsort(self.y)[-self.ga_parents:]
         self.x[worst_idx] = offspring
@@ -161,7 +165,8 @@ class GA_ABC():
         for it in range(1, self.max_iteration+1):
             #  employed phase
             for i in range(self.colony_size):
-                new_id = self.output_header + f'{it}_em_{i}'
+                new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_em_{i}'
+                self.global_structure_index += 1
                 new_x = self._neighbor_search(i)
                 new_y = self._greedy(i, new_x, new_id )
                 self.pool_x = np.append( self.pool_x, [new_x], axis=0 )
@@ -175,7 +180,8 @@ class GA_ABC():
                 new_x = self.x[idxs[0]] + self.x[idxs[1]] - self.x[idxs[2]] - self.x[idxs[3]]
                 new_x = self.x[best_idx] + self.rng.random() * new_x
                 new_x = np.clip(new_x, self.bounds[:,0], self.bounds[:,1])
-                new_id = self.output_header + f'{it}_ol_{k}_pick_{best_idx}'
+                new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_ol_{k}_pick_{best_idx}'
+                self.global_structure_index += 1
                 new_y = self._greedy(best_idx, new_x, new_id )
                 self.pool_x = np.append( self.pool_x, [new_x], axis=0 )
                 self.pool_y = np.append( self.pool_y, [new_y], axis=0 )
@@ -185,7 +191,8 @@ class GA_ABC():
             for i in range(self.colony_size):
                 if self.trial[i] >= self.limit:
                     self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
-                    new_id = self.output_header + f'{it}_sc_{i}'
+                    new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_sc_{i}'
+                    self.global_structure_index += 1
                     self.x[i], self.y[i] , atoms = self.func(self.x[i], new_id , self.output_directory )
                     save_structure_to_db(atoms, self.x[i], self.y[i], new_id, self.output_database )
                     self.trial[i] = 0
@@ -196,7 +203,7 @@ class GA_ABC():
             #  hybrid GA phase
             if it % self.ga_interval == 0:
                 print( 'Calling GA at iteration: ', it )
-                new_x_ga, new_y_ga, new_id = self._ga_step( self.output_header + f'{it}_ga_' )
+                new_x_ga, new_y_ga, new_id = self._ga_step( it )
                 self.pool_x = np.append( self.pool_x, new_x_ga, axis=0 )
                 self.pool_y = np.append( self.pool_y, new_y_ga, axis=0 )
                 self.pool_name += new_id
@@ -215,8 +222,8 @@ class GA_ABC():
                 if it == 1 or it % print_interval == 0:
                     current_time = time.time() - start_time
                     output_line = f"Iteration {it:6d} | best iteration y = {self.y[best_idx]:.9g} | best all-time y = {best_y:.9g}"
-                    output_line += f" | Total structures considered: {len(self.pool_y.flatten()) } "
-                    output_line += f" | Current time cost: {current_time}"
+                    output_line += f" | Total structures considered: {len(self.pool_y.flatten()) } {self.global_structure_index-1}"
+                    output_line += f" | Current time cost(s): {current_time} | Average cost per calc(s): {current_time/(self.global_structure_index-1)}"
                     print(output_line)
         
         return self.pool_x, self.pool_y, self.pool_name
