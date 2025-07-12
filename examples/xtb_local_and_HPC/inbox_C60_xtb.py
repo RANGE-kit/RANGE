@@ -9,7 +9,7 @@ Created on Wed Jun  4 09:09:47 2025
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
 from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
-from RANGE_py.input_output import save_energy_summary, save_best_structure
+from RANGE_py.input_output import save_energy_summary
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -97,5 +97,4 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1, save_output_level='Full')
 
-
-print( "Step 4: See results" )
+print( "Step 4: See results: use analysis script" )

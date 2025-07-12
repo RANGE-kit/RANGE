@@ -9,7 +9,7 @@ Created on Wed Jun  4 09:09:47 2025
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
 from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
-from RANGE_py.input_output import save_energy_summary, save_best_structure
+from RANGE_py.input_output import save_energy_summary
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -75,31 +75,4 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1)
 
-print( "Step 4: See results" )
-# Save ranked energies and their appearance
-sorted_idx = np.argsort(all_y)
-save_energy_summary(sorted_idx, all_y, all_name, os.path.join(output_folder_name, 'energy_summary.log') )
-save_best_structure(output_folder_name, all_name[sorted_idx[0]] , os.path.join(output_folder_name, 'best.xyz'))
-print( 'Best structure: ', all_name[sorted_idx[0]] )
-
-# Plot energy vs appearance and ranked energies
-#ydat = np.round(all_y, 6)
-xdat = np.arange( len(all_y) )
-mask = all_y < 1e6
-xdat, ydat = xdat[mask], all_y[mask]
-fig, axs = plt.subplots(1,2,figsize=(12,6),tight_layout=True)
-axs[0].plot(xdat, ydat, marker='o', ms=4, lw=2, color='orange', label='All data',alpha=0.8)
-axs[0].set_xlabel('Structures (appearance)',fontsize=10) ## input X name
-axs[0].set_ylabel('Energy',fontsize=10) ## input Y name
-axs[0].tick_params(direction='in',labelsize=8)
-
-ydat = all_y[sorted_idx]
-xdat = np.arange( len(all_y) )
-mask = ydat < 1e6
-xdat, ydat = xdat[mask], ydat[mask]
-axs[1].plot(xdat, ydat, marker='o', ms=4, lw=2, color='skyblue', label='All data',alpha=0.8)
-axs[1].set_xlabel('Structures (re-ordered)',fontsize=10) ## input X name
-axs[1].set_ylabel('Energy',fontsize=10) ## input Y name
-axs[1].tick_params(direction='in',labelsize=8)
-plt.savefig( os.path.join(output_folder_name,"my_plot.png"), dpi=200)
-#plt.show()
+print( "Step 4: See results: use analysis script" )

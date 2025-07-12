@@ -8,19 +8,10 @@ import shutil
 import os
 import numpy as np
 
-from ase.io import read
+from ase.io import read, write
 from ase.db import connect
             
-            
-def save_best_structure(output_directory, compute_id, save_file_path):
-    job_path = os.path.join(output_directory , compute_id)
-    if os.path.exists( os.path.join(job_path, 'final.xyz') ):
-        shutil.copyfile( os.path.join(job_path, 'final.xyz') , save_file_path )
-    elif os.path.exists( os.path.join(job_path, 'start.xyz') ):
-        shutil.copyfile( os.path.join(job_path, 'start.xyz') , save_file_path )
-    else:
-        raise ValueError('Path ID is set to a wrong value: ', compute_id )
-        
+                   
 def clean_directory(dir_path):
     for entry in os.scandir(dir_path):
         if entry.is_file() or entry.is_symlink():
@@ -109,12 +100,14 @@ def save_energy_summary(output_file='energy_summary.log',
     # Search data
     if os.path.exists( db_path ): # Method 1: use .db
         vec, energy, name = read_structure_from_db( db_path, 'all', None )
-        print('Read data from db')
+        use_source = 'database'
     elif os.path.exists( directory_path ): # Method 2: use directory
         vec, energy, name = read_structure_from_directory( directory_path, 'all', None )
-        print('Read data from directory')
+        use_source = 'directory'
     else:
         raise ValueError('No result is found' )
+    print('Read data from ', use_source)
+    
     # Sort energy and write summary file
     sorted_idx = np.argsort(energy)
     energy = np.round(energy, 6)
@@ -146,4 +139,17 @@ def save_energy_summary(output_file='energy_summary.log',
                  'op_type': np.array(operator_types, dtype=str),
                  'ranked_full_name': np.array(full_name, dtype=str),
                  }
+    # Get the GM structure
+    gm_id = full_name[0]
+    print(gm_id)
+    if use_source == 'database':
+        db = connect(db_path)
+        for row in db.select():
+            if row.data.get("compute_name") == gm_id:
+                atoms = row.toatoms()
+                write('best.xyz', atoms)
+                break
+    elif use_source == 'directory':
+        ##dir_path = os.path.join(directory_path,gm_id)
+        shutil.copyfile( os.path.join(gm_id, 'final.xyz') , 'best.xyz' )   
     return data_dict
