@@ -52,21 +52,24 @@ def get_translation_and_euler_from_positions(pos_start, pos_final):
     centroid_final = np.mean(pos_final, axis=0)
     p_start = pos_start - centroid_start
     p_final = pos_final - centroid_final
-    # Best-fit rotation matrix using Kabsch algorithm
-    H = p_start.T @ p_final
-    U, _, Vt = np.linalg.svd(H)
-    R_matrix = Vt.T @ U.T
-    # Correct improper rotation if needed
-    if np.linalg.det(R_matrix) < 0:
-        Vt[-1, :] *= -1
+    try:
+        # Best-fit rotation matrix using Kabsch algorithm
+        H = p_start.T @ p_final
+        U, _, Vt = np.linalg.svd(H)
         R_matrix = Vt.T @ U.T
-    # Extract Euler angles in ZXZ
-    rot = Rotation.from_matrix(R_matrix)
-    phi, theta, psi = rot.as_euler('ZXZ', degrees=True)
-    # Translation vector
-    rotated_centroid = R_matrix @ centroid_start
-    translation_vector = centroid_final - rotated_centroid
-    x, y, z = translation_vector
+        # Correct improper rotation if needed
+        if np.linalg.det(R_matrix) < 0:
+            Vt[-1, :] *= -1
+            R_matrix = Vt.T @ U.T
+        # Extract Euler angles in ZXZ
+        rot = Rotation.from_matrix(R_matrix)
+        phi, theta, psi = rot.as_euler('ZXZ', degrees=True)
+        # Translation vector
+        rotated_centroid = R_matrix @ centroid_start
+        translation_vector = centroid_final - rotated_centroid
+        x, y, z = translation_vector
+    except:
+        x, y, z, phi, theta, psi = 0,0,0,0,0,0
     return   x, y, z, phi, theta, psi
 
 def project_points_onto_vector(points, vector):
