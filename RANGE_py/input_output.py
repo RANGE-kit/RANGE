@@ -121,7 +121,7 @@ def save_energy_summary(output_file='energy_summary.log',
             appear_idx = int(m[1])
             iteration_idx = int(m[3])
             operator_type = m[4].upper()
-            output_line = f"{n:8d}{appear_idx:8d}{energy[idx]:16.6g}"
+            output_line = f"{n:8d}{appear_idx:8d}{energy[idx]:16.10g}"
             output_line += f"{iteration_idx:10d}{operator_type:>10} {name[idx]}\n"
             f1_out.write(output_line)
             # Keep for future use

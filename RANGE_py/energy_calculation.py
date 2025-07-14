@@ -343,7 +343,7 @@ class energy_computation:
                 
             elif len(self.go_conversion_rule[i])>4: # on surface
                 surf_idx = vec[0] # remain the same surface index. Output's 1st value.
-                face = self.go_conversion_rule[i][ 2+surf_idx ]
+                face = self.go_conversion_rule[i][ 2+ int(surf_idx) ]
                 # Where adsorbate atoms are now:                
                 adsorb_location_new = pos_new[ self.go_conversion_rule[i][0] ]
                 adsorb_direction_new = pos_new[ self.go_conversion_rule[i][1] ] - adsorb_location_new

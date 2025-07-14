@@ -8,16 +8,15 @@ Created on Wed Jun  4 09:09:47 2025
 
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
-from RANGE_py.input_output import save_energy_summary
+from RANGE_py.energy_calculation import energy_computation
 
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 
 #from ase.visualize import view
-from ase.visualize.plot import plot_atoms
-from ase.io import read, write
+#from ase.visualize.plot import plot_atoms
+#from ase.io import read, write
 
 #from ase.calculators.emt import EMT
 #from tblite.ase import TBLite
@@ -30,13 +29,16 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
-carbon = '../xyz_structures/C.xyz'
+xyz_path = '../xyz_structures'
+c60 = os.path.join(xyz_path, 'C60.xyz' )
+azo = os.path.join(xyz_path, 'azomethine.xyz')
 
-input_molecules = [carbon]
-input_num_of_molecules = [60]
- 
-input_constraint_type = ['in_box']
-input_constraint_value = [(0,0,0, 11,11,11, 4,4,4, 7,7,7) ]
+input_molecules = [c60,azo]
+input_num_of_molecules = [1,1]
+
+input_constraint_type = ['at_position','on_surface']
+input_constraint_value = [(0,0,0,0,0,0),(0, (1.8,2.4), 0, 7) ]
+
 
 print( "Step 1: Setting cluster" )
 # Set the cluster structure
@@ -52,14 +54,14 @@ print( "Step 2: Setting calculator" )
 
 # for ASE
 ase_calculator = XTB(method="GFN2-xTB") 
-geo_opt_parameter = dict(fmax=0.2, steps=20)
+geo_opt_parameter = dict(fmax=0.2, steps=50)
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
                                  calculator_type = 'ase', 
                                  geo_opt_para = geo_opt_parameter, # None = single point calc, 
                                  # Below are for coarse optimization
-                                 if_coarse_calc = True, 
+                                 if_coarse_calc = False, 
                                  coarse_calc_eps = None, 
                                  coarse_calc_sig = None, 
                                  coarse_calc_chg = None , 
@@ -69,7 +71,7 @@ computation = energy_computation(templates = cluster_template,
 """
 # for external xTB
 xtb_exe_path = '/Users/d2j/Downloads/xtb-6.7.1/bin/xtb.exe'
-calculator_command_line = xtb_exe_path + " --gfnff  {input_xyz} --etemp 2500 --opt normal --cycles 100 --iterations 1000 "
+calculator_command_line = xtb_exe_path + " --gfn2  {input_xyz} --opt normal --cycles 100 --iterations 1000 "
 geo_opt_control_line = dict(method='xTB')
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
