@@ -49,6 +49,8 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 
 print( "Step 2: Setting calculator" )
 # Set the way to compute energy
+coarse_opt_parameter = dict(coarse_calc_eps=0, coarse_calc_sig='UFF', coarse_calc_chg='UFF', 
+                            coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
 
 # for ASE
 ase_calculator = XTB(method="GFN2-xTB") 
@@ -60,12 +62,9 @@ computation = energy_computation(templates = cluster_template,
                                  geo_opt_para = geo_opt_parameter, # None = single point calc, 
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
-                                 coarse_calc_eps = None, 
-                                 coarse_calc_sig = None, 
-                                 coarse_calc_chg = None , 
-                                 coarse_calc_step = 10, 
-                                 coarse_calc_fmax = 10,
+                                 coarse_calc_para = coarse_opt_parameter,
                                  )
+
 """
 # for external xTB
 xtb_exe_path = '/Users/d2j/Downloads/xtb-6.7.1/bin/xtb.exe'

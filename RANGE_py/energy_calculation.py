@@ -30,7 +30,7 @@ that uses LJ to compute external DOF and freeze internal DOF
 class RigidLJQ_calculator(Calculator):
     implemented_properties = ['energy', 'forces']
 
-    def __init__(self, templates, charge=None, epsilon=None, sigma=None, cutoff=10.0, 
+    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=10.0, 
                  coulomb_const=14.3996, # eV·Å/e² (vacuum permittivity included)
                  **kwargs):
         """
@@ -65,23 +65,30 @@ class RigidLJQ_calculator(Calculator):
             self.epsilon = [epsilon]*natom
         elif isinstance(epsilon, dict): 
             self.epsilon = [ epsilon[i] for i in chemical_symbol_list ] # User provided
-        else:
+        elif epsilon=='UFF':
             self.epsilon = [ get_UFF_para(i)[0] for i in chemical_symbol_list ] # Use UFF table
+        else:
+            raise ValueError('Epsilon is not assigned properly')
 
         if isinstance(sigma, (int, float)): 
             self.sigma = [sigma]*natom
         elif isinstance(sigma, dict): 
             self.sigma = [ sigma[i] for i in chemical_symbol_list ]
-        else:
+        elif sigma=='UFF':
             self.sigma = [ get_UFF_para(i)[1] for i in chemical_symbol_list ]
+        else:
+            raise ValueError('Sigma is not assigned properly')
 
         # Atomic charge is also atom-specific
-        if isinstance(charge, list) and len(charge)!=natom: 
-            raise ValueError('Charge and molecules should have the same length: ', len(charge), natom)
-        elif charge is None:
-            self.charge = np.array([0]*natom)
+        if isinstance(charge, (list,np.ndarray)):
+            if len(charge)!=natom: 
+                raise ValueError('Charge and molecules should have the same length: ', len(charge), natom)
+            else:
+                self.charge = np.array(charge, dtype=float)
+        elif isinstance(charge, (int, float)):
+            self.charge = np.array([charge]*natom)
         else:
-            self.charge = np.array(charge, dtype=float)
+            raise ValueError('Charge is not assigned properly')
 
     def convert_force_to_rigid(self, all_positions, all_forces, dict_mol_to_atom):
         new_forces = np.zeros_like(all_forces)
@@ -169,8 +176,8 @@ class energy_computation:
     It needs the template of the cluster (generated from generate_bounds), just to know what we are modeling.
     """
     def __init__(self, templates, go_conversion_rule, 
-                 calculator, calculator_type, geo_opt_para,
-                 if_coarse_calc = False, coarse_calc_eps = None, coarse_calc_sig = None, coarse_calc_chg = None, coarse_calc_step = 20, coarse_calc_fmax = 2
+                 calculator, calculator_type, geo_opt_para, 
+                 if_coarse_calc=False, coarse_calc_para=None,
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -183,11 +190,16 @@ class energy_computation:
         self.geo_opt_para = geo_opt_para
         
         self.if_coarse_calc = if_coarse_calc
-        self.coarse_calc_eps = coarse_calc_eps
-        self.coarse_calc_sig = coarse_calc_sig
-        self.coarse_calc_chg = coarse_calc_chg
-        self.coarse_calc_step = coarse_calc_step 
-        self.coarse_calc_fmax = coarse_calc_fmax
+        if if_coarse_calc:
+            try: 
+                self.coarse_calc_eps = coarse_calc_para['coarse_calc_eps']
+                self.coarse_calc_sig = coarse_calc_para['coarse_calc_sig']
+                self.coarse_calc_chg = coarse_calc_para['coarse_calc_chg']
+                self.coarse_calc_step = coarse_calc_para['coarse_calc_step']
+                self.coarse_calc_fmax = coarse_calc_para['coarse_calc_fmax']
+                self.coarse_calc_constraint = coarse_calc_para['coarse_calc_constraint']
+            except:
+                raise ValueError('Coarse optimization parameter is missing or incorrect')
 
     # Convert a vec X to 3D structure using template 
     def vector_to_cluster(self, vec):
@@ -342,8 +354,8 @@ class energy_computation:
                 vec_new += [r_trans, theta_trans, phi_trans, phi, theta, psi]
                 
             elif len(self.go_conversion_rule[i])>4: # on surface
-                surf_idx = vec[0] # remain the same surface index. Output's 1st value.
-                face = self.go_conversion_rule[i][ 2+ int(surf_idx) ]
+                surf_idx = int(vec[0]) # remain the same surface index. Output's 1st value.
+                face = self.go_conversion_rule[i][ 2+ surf_idx ]
                 # Where adsorbate atoms are now:                
                 adsorb_location_new = pos_new[ self.go_conversion_rule[i][0] ]
                 adsorb_direction_new = pos_new[ self.go_conversion_rule[i][1] ] - adsorb_location_new
@@ -408,6 +420,8 @@ class energy_computation:
             atoms.calc = coarse_calc
             dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
             dyn = BFGS(atoms, logfile=dyn_log ) 
+            if self.coarse_calc_constraint is not None:
+                atoms.set_constraint( self.coarse_calc_constraint )
             dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
             write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
                 
@@ -428,12 +442,14 @@ class energy_computation:
                     steps = self.geo_opt_para['steps']
                 except:
                     raise ValueError('Geo Opt cannot be done due to missing parameter fmax or steps' )
+                if 'ase_constraint' in self.geo_opt_para:
+                    atoms.set_constraint( self.geo_opt_para['ase_constraint'] )
                 try:                    
                     dyn.run( fmax=fmax, steps=steps )
                     energy = atoms.get_potential_energy()
-                    vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
                 except:
                     energy = 1e7 # Cannot optimize properly to get energy
+                vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
             else:
                 try:
                     energy = atoms.get_potential_energy()

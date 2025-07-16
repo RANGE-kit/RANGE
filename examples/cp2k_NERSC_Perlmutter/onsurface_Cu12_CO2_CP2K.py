@@ -48,6 +48,9 @@ cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
 print( "Step 2: Setting calculator" )
+coarse_opt_parameter = dict(coarse_calc_eps=0, coarse_calc_sig='UFF', coarse_calc_chg='UFF', 
+                            coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
+
 calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log "
 geo_opt_control_line = dict(method='CP2K', input='input_CP2K')
 computation = energy_computation(templates = cluster_template, 
@@ -57,11 +60,7 @@ computation = energy_computation(templates = cluster_template,
                                  geo_opt_para = geo_opt_control_line ,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
-                                 coarse_calc_eps = None, 
-                                 coarse_calc_sig = None, 
-                                 coarse_calc_chg = None , 
-                                 coarse_calc_step = 10, 
-                                 coarse_calc_fmax = 10,
+                                 coarse_calc_para = coarse_opt_parameter,
                                  )
 
 output_folder_name = 'results'
