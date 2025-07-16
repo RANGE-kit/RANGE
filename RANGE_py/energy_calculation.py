@@ -204,6 +204,9 @@ class energy_computation:
                 self.coarse_calc_constraint = coarse_calc_para['coarse_calc_constraint']
             except:
                 raise ValueError('Coarse optimization parameter is missing or incorrect')
+            self.coarse_calculator = RigidLJQ_calculator(self.templates, charge=self.coarse_calc_chg, 
+                                                         epsilon=self.coarse_calc_eps, sigma=self.coarse_calc_sig,
+                                                         )
 
     # Convert a vec X to 3D structure using template 
     def vector_to_cluster(self, vec):
@@ -418,10 +421,7 @@ class energy_computation:
         
         # if use coarse calc to pre-relax
         if self.if_coarse_calc:
-            coarse_calc = RigidLJQ_calculator(self.templates, charge=self.coarse_calc_chg, 
-                                              epsilon=self.coarse_calc_eps, sigma=self.coarse_calc_sig,
-                                              )
-            atoms.calc = coarse_calc
+            atoms.calc = self.coarse_calculator
             dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
             dyn = BFGS(atoms, logfile=dyn_log ) 
             if self.coarse_calc_constraint is not None:

@@ -36,10 +36,10 @@ substrate = os.path.join(xyz_path, 'batio3-cub-7layer-tio.xyz' )
 adsorb = os.path.join(xyz_path, 'Cu.xyz')
 
 input_molecules = [substrate,adsorb]
-input_num_of_molecules = [1,1]
+input_num_of_molecules = [1,12]
 
 input_constraint_type = ['at_position','in_box']
-input_constraint_value = [(0,0,0,0,0,0),(-1,-1,7, 1,1,9) ]
+input_constraint_value = [(0,0,0,0,0,0),(-2.5,-2.5,7.5, 2.5,2.5,12.5) ]
 
 
 print( "Step 1: Setting cluster" )
@@ -64,44 +64,23 @@ for at in cluster_template:
 ase_constraint = FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'Cu'])
 
 geo_opt_parameter = dict(fmax=0.2, steps=50, ase_constraint=ase_constraint)
-coarse_opt_parameter = dict(coarse_calc_eps=0, coarse_calc_sig='UFF', coarse_calc_chg='UFF', 
+coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=ase_constraint)
 
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
                                  calculator_type = 'ase', 
-                                 geo_opt_para = None, 
+                                 geo_opt_para = geo_opt_parameter, 
                                  if_coarse_calc = True, 
                                  coarse_calc_para = coarse_opt_parameter,
                                  )
 
-"""
-# for external xTB
-xtb_exe_path = '/Users/d2j/Downloads/xtb-6.7.1/bin/xtb.exe'
-xtb_detailed_input = ' /Users/d2j/Downloads/RANGE/examples/xtb_local_and_HPC/xtb_input '
-calculator_command_line = xtb_exe_path + "  --input  " +  xtb_detailed_input
-calculator_command_line += "  --gfn2  {input_xyz} --opt normal --cycles 100 --iterations 1000 "
-geo_opt_control_line = dict(method='xTB')
-computation = energy_computation(templates = cluster_template, 
-                                 go_conversion_rule = cluster_conversion_rule, 
-                                 calculator = calculator_command_line,
-                                 calculator_type = 'external', 
-                                 geo_opt_para = geo_opt_control_line ,
-                                 # Below are for coarse optimization
-                                 if_coarse_calc = True, 
-                                 coarse_calc_eps = None, 
-                                 coarse_calc_sig = None, 
-                                 coarse_calc_chg = None , 
-                                 coarse_calc_step = 10, 
-                                 coarse_calc_fmax = 10,
-                                 )
-"""
 # Put together and run the algorithm
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=1, 
+                      colony_size=5, limit=20, max_iteration=5, 
                       ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name,
                       # Restart option

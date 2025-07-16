@@ -72,6 +72,7 @@ def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_str
             assert len(idx)==num_of_strutures
         except:
             raise ValueError('Selection from existing pool cannot be done')
+            
     energy = np.array(energy)[idx]
     vector = np.array(vector)[idx]  
     names = np.array(names)[idx]  

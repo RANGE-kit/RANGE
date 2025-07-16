@@ -40,7 +40,5 @@ for k,v in color_map.items():
     axs[1].tick_params(direction='in',labelsize=8)
 
 plt.savefig( "my_plot.png", dpi=200)
-#plt.show()
+plt.show()
 
-#save_best_structure(output_folder_name, all_name[sorted_idx[0]] , os.path.join(output_folder_name, 'best.xyz'))
-#print( 'Best structure: ', all_name[sorted_idx[0]] )

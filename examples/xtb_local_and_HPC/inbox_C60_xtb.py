@@ -49,7 +49,7 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 
 print( "Step 2: Setting calculator" )
 # Set the way to compute energy
-coarse_opt_parameter = dict(coarse_calc_eps=0, coarse_calc_sig='UFF', coarse_calc_chg='UFF', 
+coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
 
 # for ASE

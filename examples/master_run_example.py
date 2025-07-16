@@ -72,7 +72,7 @@ print( "Step 2: Setting calculator" )
 ase_calculator = XTB(method="GFN2-xTB") #TBLite(method="GFN2-xTB", verbosity=-1)
 #ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda')
 geo_opt_parameter = dict(fmax=0.2, steps=20)
-coarse_opt_parameter = dict(coarse_calc_eps=0, coarse_calc_sig='UFF', coarse_calc_chg='UFF', 
+coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
 
 # for ASE
