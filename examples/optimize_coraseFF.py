@@ -1,13 +1,15 @@
-import sys
 from RANGE_py.cluster_model import cluster_model
 from RANGE_py.energy_calculation import RigidLJQ_calculator
 from ase.optimize import BFGS
 from ase.io import read, write
+from ase import Atoms
+import numpy as np
+import matplotlib.pyplot as plt
 
 
-atoms = read( sys.argv[1] )
+atoms = read( 'compute_000308_round_15_ol_4_pick_0/start.xyz' )
 
-carbon = '/gpfs/wolf2/cades/phy191/scratch/d2j/global_opt/c60-range/C.xyz'
+carbon = 'xyz_structures/C.xyz'
 input_molecules = [carbon]
 input_num_of_molecules = [60]
 input_constraint_type = ['in_sphere_shell']
@@ -19,19 +21,15 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
 cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
-
-pos_old = atoms.get_positions()
-atoms.rattle( stdev=0.1 )
-pos_new = atoms.get_positions()
-write( 'tmp1.xyz', atoms )
-
-print( pos_new - pos_old )
-
-coarse_calc = RigidLJQ_calculator(cluster_template, charge=[0.0]*len(atoms), epsilon=0.1, sigma=3.4, cutoff=3)
+coarse_calc = RigidLJQ_calculator(cluster_template, charge=0, epsilon='UFF', sigma='UFF', cutoff=10)
 atoms.calc = coarse_calc
-#dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
-dyn = BFGS(atoms)#, logfile=dyn_log )
-dyn.run( fmax=1, steps=20 )
-write( 'tmp2.xyz', atoms )
 
-#            vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure
+#dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
+dyn = BFGS(atoms, maxstep=0.3 )#, logfile=dyn_log )
+dyn.run( fmax=10, steps=20 )
+
+dists = atoms.get_all_distances()
+np.fill_diagonal(dists, 999)
+print( np.amin(dists) )
+
+write( 'tmp2.xyz', atoms )

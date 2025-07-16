@@ -30,7 +30,7 @@ that uses LJ to compute external DOF and freeze internal DOF
 class RigidLJQ_calculator(Calculator):
     implemented_properties = ['energy', 'forces']
 
-    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=10.0, 
+    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=2, 
                  coulomb_const=14.3996, # eV·Å/e² (vacuum permittivity included)
                  **kwargs):
         """
@@ -44,6 +44,7 @@ class RigidLJQ_calculator(Calculator):
         """
         super().__init__(**kwargs)
         self.cutoff = cutoff
+        self.lower_cutoff = 0.3 # To avoid too close atoms
         self.coulomb_const = coulomb_const
 
         # Create lookup for quick atom-to-molecule membership check
@@ -135,9 +136,12 @@ class RigidLJQ_calculator(Calculator):
             r = np.linalg.norm(rij)
             if r > self.cutoff:
                 continue
-            elif r<1e-5:
-                r = 1e-5 # To avoid divided by zero when too close
-                
+            elif r < self.lower_cutoff:
+                if r<1e-5: # This helps to kick atoms when they exactly overlap.
+                    rij = np.random.rand(3)
+                    rij = rij/np.linalg.norm(rij)* self.lower_cutoff # vec with 0.2 length
+                r = self.lower_cutoff # To avoid divided by zero when too close. 
+                    
             # Lennard-Jones Potential with Lorentz-Berthelot (LB)
             sig = (self.sigma[i] + self.sigma[j] )/2
             eps = np.sqrt(self.epsilon[i]*self.epsilon[j])
