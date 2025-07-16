@@ -31,7 +31,7 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
-xyz_path = '../xyz_structures'
+xyz_path = './'
 substrate = os.path.join(xyz_path, 'batio3-cub-7layer-tio.xyz' )
 adsorb = os.path.join(xyz_path, 'Cu.xyz')
 
@@ -56,16 +56,19 @@ print( "Step 2: Setting calculator" )
 
 # for ASE
 #ase_calculator = XTB(method="GFNFF") 
-ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda')
+model_path = '/ccsopen/home/d2j/software/downloaded_models/2023-12-10-mace-128-L0_energy_epoch-249.model'
+#model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model'
+ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", device='cpu')
+
 # Constraint
 cluster_atoms = Atoms()
 for at in cluster_template:
     cluster_atoms += at
 ase_constraint = FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'Cu'])
 
-geo_opt_parameter = dict(fmax=0.2, steps=50, ase_constraint=ase_constraint)
+geo_opt_parameter = dict(fmax=0.5, steps=50, ase_constraint=ase_constraint)
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
-                            coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=ase_constraint)
+                            coarse_calc_step=20, coarse_calc_fmax=10, coarse_calc_constraint=ase_constraint)
 
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
@@ -80,8 +83,8 @@ computation = energy_computation(templates = cluster_template,
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=5, 
-                      ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
+                      colony_size=10, limit=20, max_iteration=50, 
+                      ga_interval=10, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name,
                       # Restart option
                       #restart_from_pool = 'structure_pool.db',
