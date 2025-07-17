@@ -52,7 +52,7 @@ def get_translation_and_euler_from_positions(pos_start, pos_final):
     centroid_final = np.mean(pos_final, axis=0)
     p_start = pos_start - centroid_start
     p_final = pos_final - centroid_final
-    if np.sum(np.abs(p_start-p_final))>0.01:
+    if np.sum(np.abs(pos_start-pos_final))>0.01:
         # Best-fit rotation matrix using Kabsch algorithm
         H = p_start.T @ p_final
         U, _, Vt = np.linalg.svd(H)

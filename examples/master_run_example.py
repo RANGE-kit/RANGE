@@ -9,10 +9,9 @@ Created on Wed Jun  4 09:09:47 2025
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
 from RANGE_py.energy_calculation import energy_computation
-from RANGE_py.input_output import save_energy_summary
 
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import os
 
 #from ase.visualize import view
@@ -82,8 +81,8 @@ computation = energy_computation(templates = cluster_template,
                                  calculator_type = 'ase', 
                                  geo_opt_para = None, # None = single point calc, 
                                  # Below are for coarse optimization
-                                 #if_coarse_calc = True, 
-                                 #coarse_calc_para = coarse_opt_parameter,
+                                 if_coarse_calc = True, 
+                                 coarse_calc_para = coarse_opt_parameter,
                                  )
 
 # Put together and run the algorithm
@@ -94,7 +93,7 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
                       ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name,
                       # Restart option
-                      restart_from_pool = 'structure_pool.db',
+                      restart_from_pool = 'structure_pool.db', # or set to None (default)
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1)
 

@@ -8,16 +8,15 @@ Created on Wed Jun  4 09:09:47 2025
 
 from RANGE_py.ga_abc import GA_ABC
 from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import energy_computation, RigidLJQ_calculator
-from RANGE_py.input_output import save_energy_summary
+from RANGE_py.energy_calculation import energy_computation
 
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import os
 
 #from ase.visualize import view
-from ase.visualize.plot import plot_atoms
-from ase.io import read, write
+#from ase.visualize.plot import plot_atoms
+#from ase.io import read, write
 
 #from ase.calculators.emt import EMT
 #from tblite.ase import TBLite
@@ -33,10 +32,10 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 carbon = '../xyz_structures/C.xyz'
 
 input_molecules = [carbon]
-input_num_of_molecules = [60]
+input_num_of_molecules = [3]
  
 input_constraint_type = ['in_box']
-input_constraint_value = [(0,0,0, 11,11,11, 4,4,4, 7,7,7) ]
+input_constraint_value = [(0,0,0,3,3,3)] #[(0,0,0, 11,11,11, 4,4,4, 7,7,7) ]
 
 print( "Step 1: Setting cluster" )
 # Set the cluster structure
@@ -54,7 +53,7 @@ coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse
 
 # for ASE
 ase_calculator = XTB(method="GFN2-xTB") 
-geo_opt_parameter = dict(fmax=0.2, steps=20)
+geo_opt_parameter = dict(fmax=0.2, steps=10)
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
@@ -88,7 +87,7 @@ computation = energy_computation(templates = cluster_template,
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=3, 
+                      colony_size=5, limit=20, max_iteration=0, 
                       ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name,
                       # Restart option

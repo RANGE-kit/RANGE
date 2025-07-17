@@ -18,7 +18,8 @@ atoms = read( substrate )#sys.argv[1] )
 pbc_box=(17,17,17)
 atoms.set_pbc( (True,True,True) )
 atoms.set_cell( pbc_box )
-            
+
+#model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model' # for model=XXX
 ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda')
 atoms.calc = ase_calculator
 

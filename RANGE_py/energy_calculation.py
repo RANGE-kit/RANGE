@@ -429,7 +429,7 @@ class energy_computation:
             dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
             write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
                 
-            vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure       
+            vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure   
                           
         # The fine optimization
         start_time = time.time()
@@ -453,6 +453,7 @@ class energy_computation:
                     energy = atoms.get_potential_energy()
                 except:
                     energy = 1e7 # Cannot optimize properly to get energy
+                    
                 vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
             else:
                 try:
@@ -462,7 +463,7 @@ class energy_computation:
 
         elif self.calculator_type == 'external': # To use external command
             atoms, energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
-            vec = self.cluster_to_vector( atoms, vec )      
+            vec = self.cluster_to_vector( atoms, vec )  
             
         elif self.calculator_type == 'structural': # For structure generation
             energy = 0.0

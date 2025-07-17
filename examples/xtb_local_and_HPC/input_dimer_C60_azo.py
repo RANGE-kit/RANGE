@@ -11,7 +11,7 @@ from RANGE_py.cluster_model import cluster_model
 from RANGE_py.energy_calculation import energy_computation
 
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import os
 
 #from ase.visualize import view
