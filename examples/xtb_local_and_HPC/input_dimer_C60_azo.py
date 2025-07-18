@@ -56,7 +56,7 @@ coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse
 
 # for ASE
 ase_calculator = XTB(method="GFN2-xTB") 
-geo_opt_parameter = dict(fmax=0.2, steps=50)
+geo_opt_parameter = dict(fmax=0.2, steps=10)
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
@@ -65,6 +65,7 @@ computation = energy_computation(templates = cluster_template,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
                                  coarse_calc_para = coarse_opt_parameter,
+                                 save_output_level = 'Simple',
                                  )
 
 """
@@ -79,23 +80,20 @@ computation = energy_computation(templates = cluster_template,
                                  geo_opt_para = geo_opt_control_line ,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
-                                 coarse_calc_eps = None, 
-                                 coarse_calc_sig = None, 
-                                 coarse_calc_chg = None , 
-                                 coarse_calc_step = 10, 
-                                 coarse_calc_fmax = 10,
+                                 coarse_calc_para = coarse_opt_parameter,
+                                 save_output_level = 'Simple',
                                  )
 """
 # Put together and run the algorithm
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=20, max_iteration=3, 
+                      colony_size=5, limit=20, max_iteration=0, 
                       ga_interval=2, ga_parents=3, mutate_rate=0.2, mutat_sigma=0.05,
                       output_directory = output_folder_name,
                       # Restart option
                       #restart_from_pool = 'structure_pool.db',
                       )
-all_x, all_y, all_name = optimization.run(print_interval=1, save_output_level='Full')
+all_x, all_y, all_name = optimization.run(print_interval=1)
 
 print( "Step 4: See results: use analysis script" )

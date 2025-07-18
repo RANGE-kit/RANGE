@@ -182,6 +182,7 @@ class energy_computation:
     def __init__(self, templates, go_conversion_rule, 
                  calculator, calculator_type, geo_opt_para, 
                  if_coarse_calc=False, coarse_calc_para=None,
+                 save_output_level = 'Full',
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -192,6 +193,7 @@ class energy_computation:
         self.calculator = calculator
         self.calculator_type = calculator_type
         self.geo_opt_para = geo_opt_para
+        self.save_output_level = save_output_level
         
         self.if_coarse_calc = if_coarse_calc
         if if_coarse_calc:
@@ -423,9 +425,14 @@ class energy_computation:
         
         # if use coarse calc to pre-relax
         if self.if_coarse_calc:
-            atoms.calc = self.coarse_calculator
-            dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log') 
-            dyn = BFGS(atoms, logfile=dyn_log ) 
+            atoms.calc = self.coarse_calculator 
+            if self.save_output_level == 'Full':
+                dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
+                dyn = BFGS(atoms, logfile=dyn_log ) 
+            elif self.save_output_level == 'Simple':
+                dyn = BFGS(atoms)
+            else:
+                raise ValueError('Saving output level keyword is not supported')
             if self.coarse_calc_constraint is not None:
                 atoms.set_constraint( self.coarse_calc_constraint )
             dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
@@ -439,8 +446,13 @@ class energy_computation:
             atoms.calc = self.calculator
             # If anything happens (e.g. SCF not converged due to bad structure), return a fake high energy
             if self.geo_opt_para is not None:
-                dyn_log = os.path.join(new_cumpute_directory, 'opt.log') 
-                dyn = BFGS(atoms, logfile=dyn_log ) 
+                if self.save_output_level == 'Full':
+                    dyn_log = os.path.join(new_cumpute_directory, 'opt.log') 
+                    dyn = BFGS(atoms, logfile=dyn_log ) 
+                elif self.save_output_level == 'Simple':
+                    dyn = BFGS(atoms)
+                else:
+                    raise ValueError('Saving output level keyword is not supported')
                 ##traj = Trajectory( os.path.join(new_cumpute_directory, 'opt.traj'), 'w', atoms)
                 ##dyn.attach(traj.write, interval=10)
                 try:
@@ -453,10 +465,10 @@ class energy_computation:
                 try:                    
                     dyn.run( fmax=fmax, steps=steps )
                     energy = atoms.get_potential_energy()
+                    vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
                 except:
                     energy = 1e7 # Cannot optimize properly to get energy
-                    
-                vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
+                    # And vec is not changed
             else:
                 try:
                     energy = atoms.get_potential_energy()
@@ -473,13 +485,14 @@ class energy_computation:
         else:
             raise ValueError('calculator_type is not supported')
 
-        # Vec, structure and energy are all finalized now. 
-        np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')  
-        write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
-        np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
+        # Vec, structure and energy are all finalized now. They will be saved in db file.
+        if self.save_output_level == 'Full':
+            np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')  
+            write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
+            np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
         
         current_time = time.time() - start_time
-        print( 'Time cost track for ',computing_id, ' is (in s): ',current_time  )
+        print( 'Time cost track for ',computing_id, ' is (in s): ',current_time  )  
         
         return  vec, energy, atoms
     
@@ -500,11 +513,6 @@ class energy_computation:
             It can has multiple lines as long as each line is seprated by ;
         geo_opt_para_line : str
             Provide additional controls.
-
-        Raises
-        ------
-        ValueError
-            DESCRIPTION.
 
         Returns
         -------
@@ -532,12 +540,7 @@ class energy_computation:
                                         shell=True, check=True, 
                                         capture_output=True, text=True
                                         )
-                # Get the final structure
-                if os.path.exists( 'xtbopt.xyz' ):
-                    shutil.copyfile( 'xtbopt.xyz' , 'final.xyz' )
-                elif os.path.exists( 'xtblast.xyz' ):
-                    shutil.copyfile( 'xtblast.xyz' , 'final.xyz' )
-                atoms = read('final.xyz')
+                            
                 # Now get the energy
                 with open('job.log','r') as f1:
                     energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
@@ -548,9 +551,18 @@ class energy_computation:
                     energy = float(energy1[-1][4]) 
                 else:
                     energy = 1e10 # Optimization done but no energy written. This should not happen.
-            except:
+
+            except: # If the job cannot be performed.
                 energy = 1e8  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
-                atoms = read(start_xyz)
+                    
+            # Get the final structure
+            if os.path.exists( 'xtbopt.xyz' ):
+                shutil.copyfile( 'xtbopt.xyz' , 'final.xyz' )
+            elif os.path.exists( 'xtblast.xyz' ):
+                shutil.copyfile( 'xtblast.xyz' , 'final.xyz' )
+            else:
+                shutil.copyfile( f'{start_xyz}' , 'final.xyz' )
+            atoms = read('final.xyz')
                 
         elif geo_opt_para_line['method'] == 'CP2K':
             if 'input' in geo_opt_para_line: # Check if CP2K input is ready
@@ -582,8 +594,36 @@ class energy_computation:
 
             else:
                 raise NameError('CP2K input is not provided by input key')
+        
+        if geo_opt_para_line['method'] == 'Gaussian':
+            if 'input' in geo_opt_para_line:
+                input_script = geo_opt_para_line['input']
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', input_script)
+                shutil.copyfile( start_xyz , 'data-Gaussian-initial.xyz' )
+                try:
+                    subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)
+                except:
+                    print( f' Gaussian failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
+                    energy = 1e8
+                    atoms = read(start_xyz)
+                """
+                Under construction
+                """
+                energy = 1e10
+                atoms = read(start_xyz)
+                """
+                Under construction
+                """
+            else:
+                raise NameError('Gaussian input is not provided by input key geo_opt_para_line')
+                
+        elif geo_opt_para_line['method'] == 'User':  # If a general way from user
+            subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)
+            energy = subprocess.run(geo_opt_para_line['get_energy'], shell=True, check=True, capture_output=True, text=True) 
+            structure_file = subprocess.run(geo_opt_para_line['get_structure'], shell=True, check=True, capture_output=True, text=True) 
+            atoms = read(structure_file)
         else:
-            raise ValueError('External calculation setting has wrong values:', geo_opt_para_line )
+            raise ValueError('External calculation setting has wrong values:', calculator_command_lines, geo_opt_para_line )
             
         # Go back to the main folder
         os.chdir(current_directory)

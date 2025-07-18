@@ -148,7 +148,7 @@ class GA_ABC():
         return offspring, y_off, offspring_compute_id
         
     # The main loop 
-    def run(self, print_interval=None, save_output_level='Full'):            
+    def run(self, print_interval=None):            
         start_time = time.time()
 
         self._init_colony() 
@@ -228,10 +228,5 @@ class GA_ABC():
                     output_line += f" | Total time cost(s): {round(current_time,3):16.2f} | Cost per X(s): {round(current_time/(self.global_structure_index),3):8.2f}"
                     with open("log_of_RANGE.log", 'a') as f1:
                         f1.write( output_line+'\n' )
-                    
-            if save_output_level=='Full' :
-                continue
-            elif save_output_level=='Clean' :
-                clean_directory(self.output_directory)
         
         return self.pool_x, self.pool_y, self.pool_name

@@ -60,6 +60,7 @@ computation = energy_computation(templates = cluster_template,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
                                  coarse_calc_para = coarse_opt_parameter,
+                                 #save_output_level = 'Full',
                                  )
 
 output_folder_name = 'results'

@@ -62,6 +62,7 @@ computation = energy_computation(templates = cluster_template,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
                                  coarse_calc_para = coarse_opt_parameter,
+                                 #save_output_level = 'Full',
                                  )
 
 """
@@ -76,11 +77,8 @@ computation = energy_computation(templates = cluster_template,
                                  geo_opt_para = geo_opt_control_line ,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
-                                 coarse_calc_eps = None, 
-                                 coarse_calc_sig = None, 
-                                 coarse_calc_chg = None , 
-                                 coarse_calc_step = 10, 
-                                 coarse_calc_fmax = 10,
+                                 coarse_calc_para = coarse_opt_parameter,
+                                 save_output_level = 'Simple',
                                  )
 """
 # Put together and run the algorithm
@@ -93,6 +91,6 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
                       # Restart option
                       #restart_from_pool = 'structure_pool.db',
                       )
-all_x, all_y, all_name = optimization.run(print_interval=1, save_output_level='Full')
+all_x, all_y, all_name = optimization.run(print_interval=1)
 
 print( "Step 4: See results: use analysis script" )
