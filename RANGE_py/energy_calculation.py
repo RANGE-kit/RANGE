@@ -340,6 +340,7 @@ class energy_computation:
         vec_new = []
         for i, mol_old in enumerate(self.templates):
             mol_new = cluster[ atom_idx_header: atom_idx_header+len(mol_old) ]
+            
             atom_idx_header += len(mol_old) # Move to the next molecule
             # positions of initial and final states
             pos_old = mol_old.get_positions()
@@ -361,7 +362,8 @@ class energy_computation:
                 vec_new += [r_trans, theta_trans, phi_trans, phi, theta, psi]
                 
             elif len(self.go_conversion_rule[i])>4: # on surface
-                surf_idx = int(vec[0]) # remain the same surface index. Output's 1st value.
+                mol_vec = vec[6*i : 6*i+6]
+                surf_idx = int(mol_vec[0]) # remain the same surface index. Output's 1st value.
                 face = self.go_conversion_rule[i][ 2+ surf_idx ]
                 # Where adsorbate atoms are now:                
                 adsorb_location_new = pos_new[ self.go_conversion_rule[i][0] ]
