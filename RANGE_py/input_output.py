@@ -78,6 +78,16 @@ def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_str
     names = np.array(names)[idx]  
     return vector, energy, names
 
+def convert_directory_to_db(directory_path, db_path):
+    with os.scandir(directory_path) as entries:
+        for job in entries:
+            if job.is_dir():
+                v = np.loadtxt( os.path.join(job.path, 'vec.txt') ) 
+                e = np.loadtxt( os.path.join(job.path, 'energy.txt') ) 
+                a = read( os.path.join(job.path, 'final.xyz') )
+                m = job.path
+                save_structure_to_db(a, v, e, m, db_path)
+
 def get_CP2K_run_info(CP2K_input_script_file, initial_xyz):
     with open(CP2K_input_script_file, 'r') as f1:
         lines = f1.readlines()
