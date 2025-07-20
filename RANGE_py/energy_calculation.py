@@ -595,7 +595,7 @@ class energy_computation:
             else:
                 raise NameError('CP2K input is not provided by input key')
         
-        if geo_opt_para_line['method'] == 'Gaussian':
+        elif geo_opt_para_line['method'] == 'Gaussian':
             if 'input' in geo_opt_para_line:
                 input_script = geo_opt_para_line['input']
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', input_script)
@@ -622,6 +622,7 @@ class energy_computation:
             energy = subprocess.run(geo_opt_para_line['get_energy'], shell=True, check=True, capture_output=True, text=True) 
             structure_file = subprocess.run(geo_opt_para_line['get_structure'], shell=True, check=True, capture_output=True, text=True) 
             atoms = read(structure_file)
+
         else:
             raise ValueError('External calculation setting has wrong values:', calculator_command_lines, geo_opt_para_line )
             
