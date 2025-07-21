@@ -539,27 +539,41 @@ class energy_computation:
 
         # Compute
         if geo_opt_para_line['method'] == 'xTB':
-            calculator_command_lines += ' > job.log ' # Write results to job.log
-            try:
-                result = subprocess.run(calculator_command_lines, 
-                                        shell=True, check=True, 
-                                        capture_output=True, text=True
-                                        )
-                            
-                # Now get the energy
-                with open('job.log','r') as f1:
-                    energy = [line.split() for line in f1.readlines() if "TOTAL ENERGY" in line ]
-                    energy1 = [ line.split() for line in f1.readlines() if "total energy " in line ]
-                if len(energy)>0:
-                    energy = float(energy[-1][3]) # last energy. Value is the 4th item
-                elif len(energy1)>0:
-                    energy = float(energy1[-1][4]) 
-                else:
-                    energy = 1e10 # Optimization done but no energy written. This should not happen.
-
-            except: # If the job cannot be performed.
-                energy = 1e8  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
+            if self.save_output_level == 'Full':
+                calculator_command_lines += ' > job.log ' # Write results to job.log
+                try:
+                    result = subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True )
+                    energy, energy1 = [],[]
+                    with open('job.log','r') as f1:
+                        for line in f1.readlines():
+                            if "TOTAL ENERGY" in line:
+                                energy.append( line.split() )
+                            if "total energy " in line:
+                                energy1.append( line.split() )
+                except: # If the job cannot be performed.
+                    energy = 1e8  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
+            elif self.save_output_level == 'Simple':
+                try:
+                    result = subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True )
+                    energy, energy1 = [],[]
+                    for line in result.stdout.split('\n'):
+                        if "TOTAL ENERGY" in line:
+                            energy.append( line.split() ) 
+                        if "total energy " in line:
+                            energy1.append( line.split() )
+                except:
+                    energy = 1e8
+            else:
+                raise ValueError('Output saving level keyword is wrong')
                     
+            # Get the energy
+            if len(energy)>0:
+                energy = float(energy[-1][3]) # last energy. Value is the 4th item
+            elif len(energy1)>0:
+                energy = float(energy1[-1][3]) 
+            else:
+                energy = 1e12 # Optimization done but no energy written. This should not happen.
+            
             # Get the final structure
             if os.path.exists( 'xtbopt.xyz' ):
                 shutil.copyfile( 'xtbopt.xyz' , 'final.xyz' )
