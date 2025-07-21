@@ -416,12 +416,14 @@ class energy_computation:
     def obj_func_compute_energy(self, vec, computing_id, save_output_directory):
         atoms = self.vector_to_cluster(vec)
         
-        # Each specific job folder
-        new_cumpute_directory = os.path.join(save_output_directory,computing_id)
-        os.makedirs( new_cumpute_directory, exist_ok=True)   
-        
-        # Log the starting structure
-        write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
+        if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
+            pass
+        else:
+            # Each specific job folder
+            new_cumpute_directory = os.path.join(save_output_directory,computing_id)
+            os.makedirs( new_cumpute_directory, exist_ok=True)   
+            # Log the starting structure
+            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
         
         # if use coarse calc to pre-relax
         if self.if_coarse_calc:
@@ -436,7 +438,10 @@ class energy_computation:
             if self.coarse_calc_constraint is not None:
                 atoms.set_constraint( self.coarse_calc_constraint )
             dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
-            write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
+            if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
+                pass
+            else:
+                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
                 
             vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure   
                           
