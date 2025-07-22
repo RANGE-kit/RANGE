@@ -61,16 +61,17 @@ class GA_ABC():
         if self.restart_from_pool is not None:   # Read existing database
             if os.path.exists(self.restart_from_pool):
                 if os.path.isfile(self.restart_from_pool): # From .db file
-                    self.x, self.y, names = read_structure_from_db( self.restart_from_pool, self.restart_strategy, self.colony_size )
+                    self.x, self.y, names, previous_pool_size = read_structure_from_db( self.restart_from_pool, self.restart_strategy, self.colony_size )
                 elif os.path.isdir(self.restart_from_pool):  # From results directory. This may be slow.
-                    self.x, self.y, names = read_structure_from_directory( self.restart_from_pool, self.restart_strategy, self.colony_size )
+                    self.x, self.y, names, previous_pool_size = read_structure_from_directory( self.restart_from_pool, self.restart_strategy, self.colony_size )
                 else:
                     raise ValueError(f'{self.restart_from_pool} cannot be read')
+                self.global_structure_index  += previous_pool_size
                 self.trial = np.zeros( self.colony_size , int)  # trial counter
                 self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) 
                 self.pool_name = list(names)
             else:
-                raise ValueError(f'{self.restart_from_pool} does not exist')
+                raise ValueError(f'{self.restart_from_pool} does not exist to restart. Either start from scratch or make sure this file exists.')
         else:
             lo, hi = self.bounds.T   # each is a 1D array, shape = D
             self.x = lo + (hi-lo)*np.random.rand( self.colony_size, self.bounds_dimension )  # get input X, shape = N*D

@@ -37,8 +37,9 @@ def read_structure_from_db( db_path, selection_strategy, num_of_strutures ):
         vec.append( row.data.input_vector )
         ener.append( row.data.output_energy )
         name.append( row.data.compute_name )
+    length_of_current_pool = len(name)
     vec, ener, name = select_vector_and_energy(vec, ener, name, selection_strategy, num_of_strutures) 
-    return  vec, ener, name
+    return  vec, ener, name, length_of_current_pool
 
 def read_structure_from_directory( directory_path, selection_strategy, num_of_strutures ):
     vec, ener, name = [],[],[]
@@ -51,8 +52,9 @@ def read_structure_from_directory( directory_path, selection_strategy, num_of_st
                 vec.append( v )
                 ener.append( e )
                 name.append( job.path )
+    length_of_current_pool = len(name)
     vec, ener, name = select_vector_and_energy(vec, ener, name, selection_strategy, num_of_strutures)
-    return  vec, ener, name
+    return  vec, ener, name, length_of_current_pool
 
 def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_strutures):
     if selection_strategy=='all' or selection_strategy==None or num_of_strutures==len(energy): # All data
@@ -110,10 +112,10 @@ def save_energy_summary(output_file='energy_summary.log',
                         directory_path='results'):
     # Search data
     if os.path.exists( db_path ): # Method 1: use .db
-        vec, energy, name = read_structure_from_db( db_path, 'all', None )
+        vec, energy, name, previous_size = read_structure_from_db( db_path, 'all', None )
         use_source = 'database'
     elif os.path.exists( directory_path ): # Method 2: use directory
-        vec, energy, name = read_structure_from_directory( directory_path, 'all', None )
+        vec, energy, name, previous_size = read_structure_from_directory( directory_path, 'all', None )
         use_source = 'directory'
     else:
         raise ValueError('No result is found' )
