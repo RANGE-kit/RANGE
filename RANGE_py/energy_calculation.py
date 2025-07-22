@@ -631,7 +631,7 @@ class energy_computation:
                                     
                 with open(start_xyz, 'r') as f1: # read XYZ coordinates and element symbols
                     lines = f1.readlines()
-                    content_xyz = ''.join( lines[2:] )
+                    content_xyz = ''.join( [ '  '.join(line.split()[:4])+'\n' for line in lines[2:] ] )
                     natoms = int( lines[0] )
                     elements = [ line.split()[0] for line in lines[2:] ]
                 with open(gaus_input,'r') as f2: # read Gaussian input
