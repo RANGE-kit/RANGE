@@ -1,0 +1,21 @@
+%chk=mg1u1_00c05am.chk
+%NProcShared=12
+%MEM=12GB
+!ucam-b3lyp/gen stable=opt
+#ucam-b3lyp/gen opt freq guess=read
+
+5 am 0 carb Mg SEP unrestricted singlet
+
+0 1
+{structure_info}
+
+N Mg 0
+cc-pVTZ
+****
+H 0
+aug-cc-pVTZ
+****
+
+
+
+

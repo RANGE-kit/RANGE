@@ -8,7 +8,7 @@ Created on Wed Jun  4 08:55:16 2025
 import numpy as np
 import os
 import time
-from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, clean_directory
+from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory
 
 
 class GA_ABC():

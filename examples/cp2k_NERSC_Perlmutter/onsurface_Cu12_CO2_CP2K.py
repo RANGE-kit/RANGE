@@ -50,7 +50,8 @@ print( "Step 2: Setting calculator" )
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
 
-calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log "
+# Do not change the input part name "{input_script}" or name of output log "job.log". They are tags for the code.
+calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log " 
 geo_opt_control_line = dict(method='CP2K', input='input_CP2K')
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 

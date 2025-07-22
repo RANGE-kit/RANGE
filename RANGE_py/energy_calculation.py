@@ -622,23 +622,46 @@ class energy_computation:
         
         elif geo_opt_para_line['method'] == 'Gaussian':
             if 'input' in geo_opt_para_line:
-                input_script = geo_opt_para_line['input']
-                calculator_command_lines = calculator_command_lines.replace('{input_script}', input_script)
-                shutil.copyfile( start_xyz , 'data-Gaussian-initial.xyz' )
+                if os.path.exists( geo_opt_para_line['input'] ):
+                    gaus_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
+                    gaus_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError("Gaussian input needs to be provided by geo_opt_para_line['input']= XXX")    
+                                    
+                with open(start_xyz, 'r') as f1: # read XYZ coordinates and element symbols
+                    lines = f1.readlines()
+                    content_xyz = ''.join( lines[2:] )
+                    natoms = int( lines[0] )
+                    elements = [ line.split()[0] for line in lines[2:] ]
+                with open(gaus_input,'r') as f2: # read Gaussian input
+                    content_ga = f2.read()
+                content_ga = content_ga.replace( "{structure_info}", content_xyz)
+                with open('gaussian_input', 'w') as f3:
+                    f3.write(content_ga)
+                    
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', 'gaussian_input')
                 try:
                     subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)
+                    energy = None
                 except:
                     print( f' Gaussian failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
                     energy = 1e8
                     atoms = read(start_xyz)
-                """
-                Under construction
-                """
-                energy = 1e10
-                atoms = read(start_xyz)
-                """
-                Under construction
-                """
+                
+                if energy is None: # calculation done successfully
+                    with open('job.log','r') as f4:  # Both energy and structure is here
+                        lines = f4.readlines()
+                        energy, atoms = [],[]
+                        for line_idx, line in enumerate(lines):
+                            if "SCF Done" in line:
+                                energy.append( line.split()[4] )
+                            elif "Coordinates (Angstroms)" in line:
+                                atoms.append( [ lines[idx].split()[3:] for idx in range(line_idx+3, line_idx+3+natoms) ] )
+                                
+                    energy = float( energy[-1] )
+                    atoms = Atoms( elements, positions = np.array(atoms[-1],dtype=float) )
+
             else:
                 raise NameError('Gaussian input is not provided by input key geo_opt_para_line')
                 
