@@ -551,7 +551,7 @@ class energy_computation:
                             if "total energy " in line:
                                 energy1.append( line.split() )
                 except: # If the job cannot be performed.
-                    energy = 1e8  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
+                    energy = None  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
             elif self.save_output_level == 'Simple':
                 try:
                     result = subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True )
@@ -562,26 +562,32 @@ class energy_computation:
                         if "total energy " in line:
                             energy1.append( line.split() )
                 except:
-                    energy = 1e8
+                    energy = None
             else:
                 raise ValueError('Output saving level keyword is wrong')
                     
             # Get the energy
-            if len(energy)>0:
-                energy = float(energy[-1][3]) # last energy. Value is the 4th item
-            elif len(energy1)>0:
-                energy = float(energy1[-1][3]) 
+            if energy is not None:
+                if len(energy)>0:
+                    energy = float(energy[-1][3]) # last energy. Value is the 4th item
+                elif len(energy1)>0:
+                    energy = float(energy1[-1][3]) 
+                else:
+                    energy = 1e12 # Optimization done but no energy written. This should not happen.
             else:
-                energy = 1e12 # Optimization done but no energy written. This should not happen.
+                energy = 1e8
             
             # Get the final structure
             if os.path.exists( 'xtbopt.xyz' ):
-                shutil.copyfile( 'xtbopt.xyz' , 'final.xyz' )
+                final_xyz = 'xtbopt.xyz'
             elif os.path.exists( 'xtblast.xyz' ):
-                shutil.copyfile( 'xtblast.xyz' , 'final.xyz' )
+                final_xyz = 'xtblast.xyz'
             else:
-                shutil.copyfile( f'{start_xyz}' , 'final.xyz' )
-            atoms = read('final.xyz')
+                final_xyz = f'{start_xyz}'
+
+            if self.save_output_level == 'Full':
+                shutil.copyfile( f'{final_xyz}' , 'final.xyz' )
+            atoms = read(f'{final_xyz}')
                 
         elif geo_opt_para_line['method'] == 'CP2K':
             if 'input' in geo_opt_para_line: # Check if CP2K input is ready
