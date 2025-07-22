@@ -1,21 +1,16 @@
-%chk=mg1u1_00c05am.chk
-%NProcShared=12
-%MEM=12GB
-!ucam-b3lyp/gen stable=opt
-#ucam-b3lyp/gen opt freq guess=read
+%chk=checkpoint.chk
+%NProcShared=12             ! number of processors
+%MEM=12GB                   ! Memory 
+#cam-b3lyp/gen stable=opt   ! optimization setting
 
-5 am 0 carb Mg SEP unrestricted singlet
+Calculation                 ! Calculation_title_line
 
 0 1
 {structure_info}
 
-N Mg 0
-cc-pVTZ
+O 0
+cc-pVdZ
 ****
 H 0
-aug-cc-pVTZ
+aug-cc-pVdZ
 ****
-
-
-
-

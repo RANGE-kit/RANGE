@@ -64,7 +64,7 @@ computation = energy_computation(templates = cluster_template,      # From previ
 output_folder_name = 'results'  # This folder will be created to keep output files.
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # From previous definitions
-                      colony_size=5,            # The number of bee in ABC algorithm
+                      colony_size=10,            # The number of bee in ABC algorithm
                       limit=20,                 # The upper threshold to convert a bee to scout bee
                       max_iteration=0,         # The max number of iterations
                       ga_interval=2,            # The interval iteration to call GA algorithm
