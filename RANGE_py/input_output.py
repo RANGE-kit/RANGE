@@ -26,7 +26,7 @@ def save_structure_to_db(atoms, vector, energy, name, db_path, **kwargs):
     name: str.        The name of this structure
     **kwargs : dict     Additional metadata to store
     """
-    if atoms is not None and db_path is None:
+    if atoms is not None and db_path is not None:
         db = connect(db_path)
         data_added = dict(input_vector=vector, output_energy=energy, compute_name=name)
         db.write(atoms, data=data_added, **kwargs)

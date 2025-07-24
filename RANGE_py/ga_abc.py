@@ -47,8 +47,7 @@ class GA_ABC():
         
         self.output_header = output_header
         self.output_directory = output_directory
-        if output_database is not None:
-            self.output_database = output_database
+        self.output_database = output_database
         
         self.restart_from_pool = restart_from_pool
         self.restart_strategy =restart_strategy
@@ -162,8 +161,9 @@ class GA_ABC():
         lo, hi = self.bounds.T
         current_time = time.time() - start_time
         # Kepp log info as we run 
-        with open("log_of_RANGE.log", 'w') as f1:
-            f1.write( f"Start iteration based on initial pool of {len(self.y)} solutions. Current time cost: {round(current_time,3)}\n" )
+        if print_interval is not None: 
+            with open("log_of_RANGE.log", 'w') as f1:
+                f1.write( f"Start iteration based on initial pool of {len(self.y)} solutions. Current time cost: {round(current_time,3)}\n" )
             
         for it in range(1, self.max_iteration+1):
             #  employed phase
