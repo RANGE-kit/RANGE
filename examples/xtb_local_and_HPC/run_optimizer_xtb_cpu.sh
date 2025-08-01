@@ -9,7 +9,7 @@
 
 ulimit -s unlimited
 export OMP_STACKSIZE=4G
-export OMP_NUM_THREADS=128,1
+export OMP_NUM_THREADS=64
 export OMP_MAX_ACTIVE_LEVELS=1
 
 python   inbox_C60_xtb.py 

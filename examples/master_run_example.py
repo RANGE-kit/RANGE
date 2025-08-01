@@ -39,8 +39,8 @@ co2 = 'xyz_structures/CO2.xyz'
 #O_atoms_idx_in_slab = tuple([at.index for at in read(slab_surface) if at.symbol=='O'])
 
 # Provide the number of molecules considered for every type of molecule
-input_molecules = [water]#, co2]
-input_num_of_molecules = [5]#, 1]
+input_molecules = [co2, water]
+input_num_of_molecules = [2, 5]
 
 # Provide the constraint types
 '''
@@ -82,8 +82,8 @@ replace:
     tuple/list of integers indicates the index of available atoms in the substrate to be replaced.
     Example: ( 0, [1,4,7,9,10,16,19] )
 '''
-input_constraint_type = [ 'in_sphere_shell' ]
-input_constraint_value = [ (0,0,0,4,4,4) ]
+input_constraint_type = [ 'in_sphere_shell', 'in_sphere_shell' ]
+input_constraint_value = [ (0,0,0,4,4,4), (0,0,0,5,5,5,0.2) ]
 
 
 # Set the cluster structure and initialize the boundary conditions. All input is defined above.
@@ -128,6 +128,9 @@ computation = energy_computation(templates = cluster_template,      # # From pre
 # for external CP2K:
     calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log "
     geo_opt_control_line = dict(method='CP2K', input='input_CP2K')
+# for external CP2K:
+    calculator_command_line = " g16 < {input_script}  > job.log "
+    geo_opt_control_line = dict(method='Gaussian', input='input_gaussian_template') # This input will be your gaussian input script
 # for anything else in general: (This can be flexible to add other software as needed.)
     calculator_command_line = " XXXX {input_script} XXXX"  
     geo_opt_control_line = dict(method='User', get_energy='XXX', get_structure='XXX')  
@@ -143,14 +146,17 @@ computation = energy_computation(templates = cluster_template,      # # From pre
 output_folder_name = 'results'  # This folder will be created to keep output files.
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # From previous definitions
-                      colony_size=5,            # The number of bee in ABC algorithm
-                      limit=20,                 # The upper threshold to convert a bee to scout bee
-                      max_iteration=10,         # The max number of iterations
-                      ga_interval=2,            # The interval iteration to call GA algorithm
-                      ga_parents=3,             # The number of bees to mutate (must be no more than colony_size)
+                      colony_size=20,            # The number of bee in ABC algorithm
+                      limit=30,                 # The upper threshold to convert a bee to scout bee
+                      max_iteration=50,         # The max number of iterations
+                      ga_interval=5,            # The interval iteration to call GA algorithm
+                      ga_parents=5,             # The number of bees to mutate (must be no more than colony_size)
                       mutate_rate=0.2, mutat_sigma=0.05,            # The mutation factor in GA
                       output_directory = output_folder_name,        # Save results to this folder
+                      output_header = 'compute_',                   # Default computing ID header. 
+                      output_database = 'structure_pool.db',        # Default database name. 
                       restart_from_pool = 'structure_pool.db',      # Restart option: read previous results from either a database (XX.db) or a directory (results). None (default) means a fresh start.
+                      restart_strategy = 'lowest',                  # Restarting method: default is "lowest" (pick the lowest candidates). Can also be "random" or "highest"
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1)  # Start running. Print information with given frequency. The pool info is return for direct analysis
 

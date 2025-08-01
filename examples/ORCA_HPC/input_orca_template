@@ -1,0 +1,15 @@
+! B3LYP  def2-TZVP  def2/J  D3  Opt
+
+%maxcore 3000
+%pal 
+nprocs 64
+end
+%scf
+maxiter 1000
+end
+
+%CPCM SMD TRUE
+      SMDSOLVENT "WATER"
+END
+
+* xyzfile  0  1  data-ORCA-initial.xyz

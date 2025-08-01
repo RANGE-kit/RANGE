@@ -664,13 +664,42 @@ class energy_computation:
 
             else:
                 raise NameError('Gaussian input is not provided by input key geo_opt_para_line')
-                
+            
+        elif geo_opt_para_line['method'] == 'ORCA':
+            if 'input' in geo_opt_para_line: # Check if CP2K input is ready
+                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
+                    ORCA_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
+                    ORCA_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError('ORCA input is not found from key path')  
+                # Run ORCA
+                shutil.copyfile( start_xyz , 'data-ORCA-initial.xyz' )
+                shutil.copyfile( ORCA_input , 'input-ORCA' )
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', 'input-ORCA')
+                try:
+                    result = subprocess.run(calculator_command_lines, 
+                                            shell=True, check=True, 
+                                            capture_output=True, text=True
+                                            )
+                    # Now get the energy from ORCA
+                    with open('job.log','r') as f1:
+                        energy = [line.split() for line in f1.readlines() if "FINAL SINGLE POINT ENERGY" in line ]
+                    energy = float(energy[-1][-1]) # last energy. Value is the last value
+                    # Get the final xyz 
+                    atoms = read( 'input-ORCA.xyz' )
+                except subprocess.CalledProcessError as e:
+                    print( 'ORCA Error: ', job_directory , e.stderr)
+                    energy = 1e8
+                    atoms = read(start_xyz)
+            else:
+                raise NameError('ORCA input is not provided by input key')
+
         elif geo_opt_para_line['method'] == 'User':  # If a general way from user
             subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)
             energy = subprocess.run(geo_opt_para_line['get_energy'], shell=True, check=True, capture_output=True, text=True) 
             structure_file = subprocess.run(geo_opt_para_line['get_structure'], shell=True, check=True, capture_output=True, text=True) 
             atoms = read(structure_file)
-
         else:
             raise ValueError('External calculation setting has wrong values:', calculator_command_lines, geo_opt_para_line )
             
