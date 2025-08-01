@@ -423,7 +423,7 @@ class energy_computation:
             new_cumpute_directory = os.path.join(save_output_directory,computing_id)
             os.makedirs( new_cumpute_directory, exist_ok=True)   
             # Log the starting structure
-            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms )
+            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms, format='xyz' )
         
         # if use coarse calc to pre-relax
         if self.if_coarse_calc:
@@ -441,7 +441,7 @@ class energy_computation:
             if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
                 pass
             else:
-                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms ) 
+                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms, format='xyz') 
                 
             vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure   
                           

@@ -29,9 +29,9 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input to assign the XYZ structure files
-water = '../xyz_structures/Water.xyz'
+water = '../Water.xyz'
 input_molecules = [water]#, co2]
-input_num_of_molecules = [5]#, 1]
+input_num_of_molecules = [3]#, 1]
 input_constraint_type = [ 'in_box' ]
 input_constraint_value = [ (0,0,0,4,4,4) ]
 
@@ -45,7 +45,7 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 
 print( "Step 2: Setting calculator" )
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
-                            coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
+                            coarse_calc_step=20, coarse_calc_fmax=5, coarse_calc_constraint=None)
 # Do not change the input part name "{input_script}" or name of output log "job.log". They are tags for the code.
 orca_exe_path = '/ccsopen/home/d2j/software/ORCA/orca_6_0_1_linux_x86-64_shared_openmpi416/orca'
 calculator_command_line = orca_exe_path + "  {input_script} > job.log "
