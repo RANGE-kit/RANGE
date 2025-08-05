@@ -496,8 +496,8 @@ class energy_computation:
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
             np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
         
-        current_time = time.time() - start_time
-        print( 'Time cost track for ',computing_id, ' is (in s): ',current_time  )  
+        current_time = np.round(time.time() - start_time , 3)
+        print( 'Time cost track for ',computing_id, ' is (in s): ',current_time, ' with energy: ', np.round(energy,3) )  
         
         return  vec, energy, atoms
     

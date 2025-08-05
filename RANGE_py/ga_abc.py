@@ -87,6 +87,12 @@ class GA_ABC():
             self.y = np.array( self.y )
             self.trial = np.zeros( self.colony_size , int)  # trial counter
             self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
+        # The best X and Y at the begining
+        best_idx = np.argmin(self.y) 
+        self.best_id = np.copy( self.pool_name[best_idx] )
+        self.best_y = np.copy( self.y[best_idx] )
+        self.best_x = np.copy( self.x[best_idx] )
+        self.best_trial = 0
         
     # Generate new candidate around solution i
     def _neighbor_search(self, i): 
@@ -140,21 +146,31 @@ class GA_ABC():
             offspring[i] = x_off
             y_off.append( y_ )
             offspring_compute_id.append( compute_id )
+            
+            self.update_GM(x_off, y_, compute_id)
+            
         y_off = np.array(y_off)
         worst_idx = np.argsort(self.y)[-self.ga_parents:]
         self.x[worst_idx] = offspring
         self.y[worst_idx] = y_off
         self.trial[worst_idx] = 0
         return offspring, y_off, offspring_compute_id
+    
+    def update_GM(self, new_x, new_y, new_id ):
+        if new_y < self.best_y:
+            self.best_id = str(new_id)
+            self.best_y = float(new_y)
+            self.best_x = np.asarray(new_x)
+            self.best_trial = 0
+        else:
+            self.best_trial += 1
+        ##print( '--> ', self.best_trial, self.best_y, self.best_id, new_y)
         
     # The main loop 
     def run(self, print_interval=None):            
         start_time = time.time()
 
         self._init_colony() 
-        best_idx = np.argmin(self.y)
-        best_x = np.copy( self.x[best_idx] )
-        best_y = np.copy( self.y[best_idx] )
 
         # Keep all the results. Do we need it? The input x will be passed to calculator. 
         # It will be converted to XYZ before calculation. We can save/keep results there.
@@ -172,23 +188,32 @@ class GA_ABC():
                 self.global_structure_index += 1
                 new_x = self._neighbor_search(i)
                 new_y = self._greedy(i, new_x, new_id )
+                
                 self.pool_x = np.append( self.pool_x, [new_x], axis=0 )
                 self.pool_y = np.append( self.pool_y, [new_y], axis=0 )
                 self.pool_name.append(new_id)
+                
+                self.update_GM(new_x, new_y, new_id )
 
             #  onlooker phase
-            # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002             
-            for k in range(self.colony_size):
+            # Dynamically determine OL phase numbers: low after finding a new GM. High after GM survived too many times. Min=2. Max=Min+Bee_size
+            num_of_OL = 2 + int((self.best_trial/self.global_structure_index)*self.colony_size)
+            # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002   
+            for k in range(num_of_OL):
                 idxs = np.random.choice(self.colony_size, size=4, replace=False) 
                 new_x = self.x[idxs[0]] + self.x[idxs[1]] - self.x[idxs[2]] - self.x[idxs[3]]
-                new_x = self.x[best_idx] + self.rng.random() * new_x
+                new_x = self.best_x + self.rng.random()*new_x 
                 new_x = np.clip(new_x, self.bounds[:,0], self.bounds[:,1])
-                new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_ol_{k}_pick_{best_idx}'
-                self.global_structure_index += 1
-                new_y = self._greedy(best_idx, new_x, new_id )
+                new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_ol_{k}'
+                self.global_structure_index += 1 
+                new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory )
+                save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database )
+             
                 self.pool_x = np.append( self.pool_x, [new_x], axis=0 )
                 self.pool_y = np.append( self.pool_y, [new_y], axis=0 )
                 self.pool_name.append(new_id)
+                
+                self.update_GM(new_x, new_y, new_id )
 
             #  scout phase
             for i in range(self.colony_size):
@@ -202,6 +227,8 @@ class GA_ABC():
                     self.pool_x = np.append( self.pool_x, [self.x[i]], axis=0 )
                     self.pool_y = np.append( self.pool_y, [self.y[i]], axis=0 )
                     self.pool_name.append(new_id)
+                    
+                    self.update_GM(self.x[i], self.y[i], new_id )
 
             #  hybrid GA phase
             if it % self.ga_interval == 0:
@@ -212,22 +239,15 @@ class GA_ABC():
                 self.pool_name += new_id
 
             # This is the best value after this iteration
-            if self.y.min() < self.y[best_idx]:
-                best_idx = self.y.argmin()
-                
-            # Update all-time minimum to this iteration minimum if needed.
-            # This may also be used for early termination in future.
-            if self.y[best_idx] < best_y:
-                best_x = np.copy( self.x[best_idx] )
-                best_y = np.copy( self.y[best_idx] )
+            best_y_this_iter = self.y.min()
                 
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
                     current_time = time.time() - start_time
-                    output_line = f"Iteration {it:5d} | best Y= {np.round(self.y[best_idx],6):16.6f} | All-time best Y= {np.round(best_y,6):16.6f}"
+                    output_line = f"Iteration {it:5d} | best Y= {np.round(best_y_this_iter,6):16.6f} | All-time best Y= {np.round(self.best_y,6):16.6f}"
                     output_line += f" | Total X: {self.global_structure_index:9d}"
                     output_line += f" | Total time cost(s): {round(current_time,3):16.2f} | Cost per X(s): {round(current_time/(self.global_structure_index),3):8.2f}"
                     with open("log_of_RANGE.log", 'a') as f1:
                         f1.write( output_line+'\n' )
-        
+        print(f"Completed with best Y: {self.best_y} at {self.best_id} that survived {self.best_trial} times of {self.global_structure_index} generations")
         return self.pool_x, self.pool_y, self.pool_name
