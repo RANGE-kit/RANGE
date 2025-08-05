@@ -30,7 +30,7 @@ that uses LJ to compute external DOF and freeze internal DOF
 class RigidLJQ_calculator(Calculator):
     implemented_properties = ['energy', 'forces']
 
-    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=2, 
+    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=1.0, 
                  coulomb_const=14.3996, # eV·Å/e² (vacuum permittivity included)
                  **kwargs):
         """
@@ -542,7 +542,7 @@ class energy_computation:
             if self.save_output_level == 'Full':
                 calculator_command_lines += ' > job.log ' # Write results to job.log
                 try:
-                    result = subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True )
+                    result = subprocess.run(calculator_command_lines, shell=True, check=False, capture_output=True, text=True )
                     energy, energy1 = [],[]
                     with open('job.log','r') as f1:
                         for line in f1.readlines():
@@ -554,7 +554,7 @@ class energy_computation:
                     energy = None  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
             elif self.save_output_level == 'Simple':
                 try:
-                    result = subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True )
+                    result = subprocess.run(calculator_command_lines, shell=True, check=False, capture_output=True, text=True )
                     energy, energy1 = [],[]
                     for line in result.stdout.split('\n'):
                         if "TOTAL ENERGY" in line:
@@ -602,7 +602,7 @@ class energy_computation:
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', CP2K_input)
                 try:
                     result = subprocess.run(calculator_command_lines, 
-                                            shell=True, check=True, 
+                                            shell=True, check=False, 
                                             capture_output=True, text=True
                                             )
                     # Now get the energy from CP2K
@@ -642,7 +642,7 @@ class energy_computation:
                     
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', 'gaussian_input')
                 try:
-                    subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)
+                    subprocess.run(calculator_command_lines, shell=True, check=False, capture_output=True, text=True)
                     energy = None
                 except:
                     print( f' Gaussian failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
@@ -679,7 +679,7 @@ class energy_computation:
                 calculator_command_lines = calculator_command_lines.replace('{input_script}', 'input-ORCA')
                 try:
                     result = subprocess.run(calculator_command_lines, 
-                                            shell=True, check=True, 
+                                            shell=True, check=False, 
                                             capture_output=True, text=True
                                             )
                     # Now get the energy from ORCA
