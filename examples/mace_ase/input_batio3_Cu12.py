@@ -90,6 +90,6 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
                       # Restart option
                       #restart_from_pool = 'structure_pool.db',
                       )
-all_x, all_y, all_name = optimization.run(print_interval=1)
+optimization.run(print_interval=1)
 
 print( "Step 4: See results: use analysis script" )

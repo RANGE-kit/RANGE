@@ -158,6 +158,6 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       restart_from_pool = 'structure_pool.db',      # Restart option: read previous results from either a database (XX.db) or a directory (results). None (default) means a fresh start.
                       restart_strategy = 'lowest',                  # Restarting method: default is "lowest" (pick the lowest candidates). Can also be "random" or "highest"
                       )
-all_x, all_y, all_name = optimization.run(print_interval=1)  # Start running. Print information with given frequency. The pool info is return for direct analysis
+optimization.run(print_interval=1)  # Start running. Print information with given frequency. 
 
 print( "Step 4: See results: use analysis script" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.

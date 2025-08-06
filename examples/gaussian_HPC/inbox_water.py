@@ -73,6 +73,6 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       output_directory = output_folder_name,        # Save results to this folder
                       #restart_from_pool = 'structure_pool.db',      # Restart option: read previous results from either a database (XX.db) or a directory (results). None (default) means a fresh start.
                       )
-all_x, all_y, all_name = optimization.run(print_interval=1)  # Start running. Print information with given frequency. The pool info is return for direct analysis
+optimization.run(print_interval=1)  # Start running. Print information with given frequency. The pool info is return for direct analysis
 
 print( "Step 4: See results: use analysis script" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.
