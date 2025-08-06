@@ -100,9 +100,17 @@ class GA_ABC():
         
     # Generate new candidate around solution i
     def _neighbor_search(self, i): 
-        k = np.random.choice([j for j in range(self.colony_size) if j != i])
-        phi = np.random.uniform(-1, 1, self.bounds_dimension)
-        v = np.clip(self.x[i] + phi*(self.x[i]-self.x[k]), self.bounds[:,0], self.bounds[:,1])
+        # ------ Differential evolution method
+        #k = np.random.choice([j for j in range(self.colony_size) if j != i])
+        #phi = np.random.uniform(-1, 1, self.bounds_dimension)
+        #v = np.clip(self.x[i] + phi*(self.x[i]-self.x[k]), self.bounds[:,0], self.bounds[:,1])
+        # ------ Trigonometric mutation
+        p = (np.amax(self.y) - self.y)/(np.amax(self.y)-np.amin(self.y))
+        k1,k2,k3 = np.random.choice([j for j in range(self.colony_size) if j != i], size=3, replace=False) 
+        p1,p2,p3 = p[k1],p[k2],p[k3]
+        v = (self.y[k1]+self.y[k2]+self.y[k3])/3 
+        v = v + (p2-p1)*(self.y[k1]-self.y[k2]) + (p3-p2)*(self.y[k2]-self.y[k3]) + (p1-p3)*(self.y[k3]-self.y[k1])
+        v = np.clip(v, self.bounds[:,0], self.bounds[:,1])
         return v
         
     # Greedy update by calculating cost function
@@ -123,8 +131,9 @@ class GA_ABC():
         return child
         
     def _mutate(self, child):
+        mutate_sigma =self.mutate_sigma*(1 + 5*self.best_trial/self.global_structure_index)
         if np.random.rand() < self.mutate_rate:
-            noise = np.random.randn(self.bounds_dimension) * self.mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
+            noise = np.random.randn(self.bounds_dimension) * mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
             child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
         return child    
         
@@ -205,8 +214,8 @@ class GA_ABC():
                 
 
             #  onlooker phase
-            # Dynamically determine OL phase numbers: low after finding a new GM. High after GM survived too many times. Min=1. Max=Min+Bee_size
-            num_of_OL = 1 + int((self.best_trial/self.global_structure_index)*self.colony_size)
+            # Dynamically determine OL phase numbers
+            num_of_OL = 1 + int((1-self.best_trial/self.global_structure_index)*self.colony_size)
             # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002   
             for k in range(num_of_OL):
                 idxs = np.random.choice(self.colony_size, size=4, replace=False) 
@@ -228,8 +237,8 @@ class GA_ABC():
 
             #  scout phase
             # Dynamically determine threshold: higher threshold when global is improving fast. Otherwise lower to explore more than exploiate.
-            sc_limit = int(self.limit * (0.5 + 2 * (1 - (self.best_trial/self.global_structure_index))))
-            sc_limit = max(5, min(sc_limit, 100))
+            sc_limit = int(self.limit * (0.5 + 2 * (1-self.best_trial/self.global_structure_index)))
+            sc_limit = max(5, min(sc_limit, 50))
             for i in range(self.colony_size):
                 if self.trial[i] >= sc_limit:
                     self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
@@ -246,7 +255,6 @@ class GA_ABC():
                         self.pool_y = np.append( self.pool_y, [self.y[i]], axis=0 )
                         self.pool_name.append(new_id)
                     
-
             #  hybrid GA phase
             if it % self.ga_interval == 0:
                 new_x_ga, new_y_ga, new_id = self._ga_step( it )
@@ -264,7 +272,7 @@ class GA_ABC():
                     output_line += f" | Total time cost(s): {round(current_time,3):16.2f} | Cost per X(s): {round(current_time/(self.global_structure_index-previous_pool_size),3):8.2f}"
                     with open("log_of_RANGE.log", 'a') as f1:
                         f1.write( output_line+'\n' )
-            print(f'Dynamic information: OL_num={num_of_OL} SC_limit={sc_limit} for best_Y={self.best_y} Life={self.best_trial} Gen={self.global_structure_index} Ratio={self.best_trial/self.global_structure_index}')
+            print(f'Dynamic information at Iteration {it:5d}: OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen={self.global_structure_index:5d} Ratio=np.round({self.best_trial/self.global_structure_index},2)')
         print(f"Completed with best Y: {self.best_y} at {self.best_id} that survived {self.best_trial} times of {self.global_structure_index} generations")
         
         if if_return_results:
