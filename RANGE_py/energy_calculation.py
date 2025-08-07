@@ -415,7 +415,7 @@ class energy_computation:
     # Assign possible ways to compute energy
     def obj_func_compute_energy(self, vec, computing_id, save_output_directory):
         atoms = self.vector_to_cluster(vec)
-        
+
         if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
             pass
         else:

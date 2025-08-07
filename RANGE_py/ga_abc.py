@@ -105,12 +105,12 @@ class GA_ABC():
         #phi = np.random.uniform(-1, 1, self.bounds_dimension)
         #v = np.clip(self.x[i] + phi*(self.x[i]-self.x[k]), self.bounds[:,0], self.bounds[:,1])
         # ------ Trigonometric mutation
-        p = (np.amax(self.y) - self.y)/(np.amax(self.y)-np.amin(self.y))
+        p = (np.amax(self.y) - self.y)/(np.amax(self.y)-np.amin(self.y)+1e-8)
         k1,k2,k3 = np.random.choice([j for j in range(self.colony_size) if j != i], size=3, replace=False) 
         p1,p2,p3 = p[k1],p[k2],p[k3]
-        v = (self.y[k1]+self.y[k2]+self.y[k3])/3 
-        v = v + (p2-p1)*(self.y[k1]-self.y[k2]) + (p3-p2)*(self.y[k2]-self.y[k3]) + (p1-p3)*(self.y[k3]-self.y[k1])
-        v = np.clip(v, self.bounds[:,0], self.bounds[:,1])
+        v = (self.x[k1]+self.x[k2]+self.x[k3])/3 
+        v = v + (p2-p1)*(self.x[k1]-self.x[k2]) + (p3-p2)*(self.x[k2]-self.x[k3]) + (p1-p3)*(self.x[k3]-self.x[k1])
+        #v = np.clip(v, self.bounds[:,0], self.bounds[:,1])
         return v
         
     # Greedy update by calculating cost function
@@ -134,7 +134,7 @@ class GA_ABC():
         mutate_sigma =self.mutate_sigma*(1 + 5*self.best_trial/self.global_structure_index)
         if np.random.rand() < self.mutate_rate:
             noise = np.random.randn(self.bounds_dimension) * mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
-            child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
+            #child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
         return child    
         
     def _ga_step(self, iteration_idx):
@@ -221,7 +221,7 @@ class GA_ABC():
                 idxs = np.random.choice(self.colony_size, size=4, replace=False) 
                 new_x = self.x[idxs[0]] + self.x[idxs[1]] - self.x[idxs[2]] - self.x[idxs[3]]
                 new_x = self.best_x + self.rng.random()*new_x 
-                new_x = np.clip(new_x, self.bounds[:,0], self.bounds[:,1])
+                #new_x = np.clip(new_x, self.bounds[:,0], self.bounds[:,1])
                 idxs = f"{idxs[0]}_{idxs[1]}_{idxs[2]}_{idxs[3]}"
                 new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_ol_{idxs}'
                 self.global_structure_index += 1 
