@@ -8,7 +8,8 @@ Created on Wed Jun  4 08:55:16 2025
 import numpy as np
 import os
 import time
-from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory
+from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, print_code_info
+from RANGE_py.utility import select_from_diversity
 
 
 class GA_ABC():
@@ -57,6 +58,7 @@ class GA_ABC():
 
     # Initial colony from random generation if not restarting
     def _init_colony(self):
+        print_code_info('Header')
         if self.restart_from_pool is not None:   # Read existing database
             if os.path.exists(self.restart_from_pool):
                 if os.path.isfile(self.restart_from_pool): # From .db file
@@ -67,11 +69,13 @@ class GA_ABC():
                     raise ValueError(f'{self.restart_from_pool} cannot be read')
                 self.global_structure_index  += previous_pool_size
                 self.pool_name = list(names)
+                self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
             else:
                 raise ValueError(f'{self.restart_from_pool} does not exist to restart. Either start from scratch or make sure this file exists.')
+            print(f"Initialization from previous generations in {self.restart_from_pool}")
         else:
             lo, hi = self.bounds.T   # each is a 1D array, shape = D
-            self.x = lo + (hi-lo)*np.random.rand( self.colony_size, self.bounds_dimension )  # get input X, shape = N*D
+            self.x = lo + (hi-lo)*np.random.rand( self.colony_size*5, self.bounds_dimension )  # get input X, shape = 5N*D
             os.makedirs(self.output_directory, exist_ok=True)
             self.y, self.pool_name = [], []
             for n, initial_x_guess in enumerate(self.x):
@@ -83,14 +87,16 @@ class GA_ABC():
                 self.y.append( initial_y )
                 self.pool_name.append( compute_id )
             self.y = np.array( self.y )
-            
+            self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
+            # Narrow down X and Y to colony size
+            idx = select_from_diversity(self.x, self.y, self.colony_size)
+            self.x, self.y = self.x[idx], self.y[idx]
+            print("Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) )
         self.trial = np.zeros( self.colony_size , int)  # trial counter
-        self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
-        
         # initialize the track of bees: a dict of lists (bees). Every bee: a list of dict, each dict is a structure name:[x,y]
         #track_bees = { n:[ {self.pool_name[n]:[self.x[n],self.y[n]] } ] for n in range(self.colony_size) }
         # This can also be achieved by post-analysis of the compute names. So comment it out.
-            
+        
         # The best X and Y at the begining
         best_idx = np.argmin(self.y) 
         self.best_id = np.copy( self.pool_name[best_idx] )
@@ -135,6 +141,7 @@ class GA_ABC():
         if np.random.rand() < self.mutate_rate:
             noise = np.random.randn(self.bounds_dimension) * mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
             #child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
+            child = child + noise
         return child    
         
     def _ga_step(self, iteration_idx):
@@ -212,6 +219,14 @@ class GA_ABC():
                     self.pool_y = np.append( self.pool_y, [new_y], axis=0 )
                     self.pool_name.append(new_id)
                 
+            #  hybrid GA phase
+            if it % self.ga_interval == 0:
+                new_x_ga, new_y_ga, new_id = self._ga_step( it )
+                
+                if if_return_results:
+                    self.pool_x = np.append( self.pool_x, new_x_ga, axis=0 )
+                    self.pool_y = np.append( self.pool_y, new_y_ga, axis=0 )
+                    self.pool_name += new_id
 
             #  onlooker phase
             # Dynamically determine OL phase numbers
@@ -254,15 +269,6 @@ class GA_ABC():
                         self.pool_x = np.append( self.pool_x, [self.x[i]], axis=0 )
                         self.pool_y = np.append( self.pool_y, [self.y[i]], axis=0 )
                         self.pool_name.append(new_id)
-                    
-            #  hybrid GA phase
-            if it % self.ga_interval == 0:
-                new_x_ga, new_y_ga, new_id = self._ga_step( it )
-                
-                if if_return_results:
-                    self.pool_x = np.append( self.pool_x, new_x_ga, axis=0 )
-                    self.pool_y = np.append( self.pool_y, new_y_ga, axis=0 )
-                    self.pool_name += new_id
                 
             if print_interval is not None: 
                 if it == 1 or it % print_interval == 0:
@@ -272,7 +278,7 @@ class GA_ABC():
                     output_line += f" | Total time cost(s): {round(current_time,3):16.2f} | Cost per X(s): {round(current_time/(self.global_structure_index-previous_pool_size),3):8.2f}"
                     with open("log_of_RANGE.log", 'a') as f1:
                         f1.write( output_line+'\n' )
-            print(f'Dynamic information at Iteration {it:5d}: OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen={self.global_structure_index:5d} Ratio=np.round({self.best_trial/self.global_structure_index},2)')
+            print(f'Dynamic info at Iteration {it:5d}: OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
         print(f"Completed with best Y: {self.best_y} at {self.best_id} that survived {self.best_trial} times of {self.global_structure_index} generations")
         
         if if_return_results:

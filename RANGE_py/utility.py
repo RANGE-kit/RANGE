@@ -96,7 +96,34 @@ def compare_two_vec_difference(pool_vec, new_vec, tol=0.01):
     diff = np.mean( np.abs((pool_vec - v)/v) , axis=1 )
     return diff #np.amin( diff )
 
-        
+def select_from_diversity(X_vec, Y_ener, num_of_candidates):
+    """
+    Note: if X and Y are from random results, this is fine. But if from a previously calculated result,
+    The lowest Y will be picked and the rest can be high Y since they have far distance from X of the lowest Y.
+    Therefore, we put a Y limit (e.g. pick X from the lowest Y values to avoid picking high Y)
+    """
+    sorted_idx = np.argsort(Y_ener)
+    limit = np.amin( [len(sorted_idx), np.amax(num_of_candidates*5), int(0.2*len(sorted_idx))] )
+    Y_sorted = np.asarray(Y_ener)[sorted_idx][:limit]
+    X_sorted = np.asarray(X_vec)[sorted_idx][:limit]
+    # Always add the lowest Y candidate
+    X_sorted = X_sorted[:, np.std(X_sorted, axis=0)>1e-8]  # Remove zero variance columns
+    selected_mask = np.zeros(len(Y_sorted), dtype=bool)
+    selected = [0]  # The index for lowest Y
+    selected_mask[0] = True
+    # Precompute distance
+    diff = X_sorted[:, np.newaxis, :] - X_sorted[np.newaxis, :, :]
+    dists = np.linalg.norm(diff, axis=2)
+    min_dists = dists[:, 0]
+    # Find the remaining candidates
+    for _ in range(1, num_of_candidates):
+        min_dists[selected_mask] = -np.inf
+        next_idx = np.argmax(min_dists)
+        selected.append(next_idx)
+        selected_mask[next_idx] = True
+        min_dists = np.minimum(min_dists, dists[:, next_idx])
+    # Convert from index in the sorted list to index in the original list
+    return sorted_idx[selected]  
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040

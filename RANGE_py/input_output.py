@@ -10,6 +10,7 @@ import numpy as np
 
 from ase.io import read, write
 from ase.db import connect
+from RANGE_py.utility import select_from_diversity
             
                    
 def clean_directory(dir_path):
@@ -60,13 +61,8 @@ def read_structure_from_directory( directory_path, selection_strategy, num_of_st
 def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_strutures):
     if selection_strategy=='all' or selection_strategy==None or num_of_strutures==len(energy): # All data
         idx = np.arange(len(energy))
-    elif selection_strategy == 'lowest': # select from the lowest structure
-        sorted_idx = np.argsort(energy)  # Sort energy from low to high
-        # Pick N structures from 2N candidates (with the lowest E)
-        idx = np.random.choice(sorted_idx[:num_of_strutures*2], size=num_of_strutures, replace=False) 
-    elif selection_strategy == 'highest': 
-        sorted_idx = np.argsort(energy)[::-1]  
-        idx = np.random.choice(sorted_idx[:num_of_strutures*2], size=num_of_strutures, replace=False) 
+    elif selection_strategy == 'lowest': # select from the lowest structure with high diversity
+        idx = select_from_diversity(vector, energy, num_of_strutures)
     elif selection_strategy == 'random':
         idx = np.random.choice(np.arange(len(energy)), size=num_of_strutures, replace=False) 
     else:
@@ -75,7 +71,6 @@ def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_str
             assert len(idx)==num_of_strutures
         except:
             raise ValueError('Selection from existing pool cannot be done')
-            
     energy = np.array(energy)[idx]
     vector = np.array(vector)[idx]  
     names = np.array(names)[idx]  
@@ -167,3 +162,9 @@ def save_energy_summary(output_file='energy_summary.log',
         ##dir_path = os.path.join(directory_path,gm_id)
         shutil.copyfile( os.path.join(gm_id, 'final.xyz') , 'best.xyz' )   
     return data_dict
+
+def print_code_info(print_location):
+    if print_location=='Header':
+        print('RANGE search starts')
+    else:
+        print(str(print_location))
