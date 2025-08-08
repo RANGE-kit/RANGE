@@ -156,7 +156,9 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       output_header = 'compute_',                   # Default computing ID header. 
                       output_database = 'structure_pool.db',        # Default database name. 
                       restart_from_pool = 'structure_pool.db',      # Restart option: read previous results from either a database (XX.db) or a directory (results). None (default) means a fresh start.
-                      restart_strategy = 'lowest',                  # Restarting method: default is "lowest" (pick the lowest candidates). Can also be "random" or "highest"
+                      restart_strategy = 'lowest',                  # Restarting method: default is "lowest" (pick the lowest candidates). Can also be "random".
+                      apply_algorithm = 'ABC_GA',                   # ABC/GA algorithm to use (default). Can also be 'ABC_pyGlobOpt' or 'GA_native' for backward compatibility.
+                      if_clip_candidate = True,                     # Clip the generated candidates (default).
                       )
 optimization.run(print_interval=1)  # Start running. Print information with given frequency. 
 
