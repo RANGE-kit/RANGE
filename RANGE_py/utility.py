@@ -10,6 +10,7 @@ import numpy as np
 
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
 from scipy.spatial.transform import Rotation 
+from scipy.optimize import linear_sum_assignment
 
 
 def cartesian_to_ellipsoidal_deg(x, y, z, A, B, C):
@@ -89,12 +90,6 @@ def correct_surface_normal(one_surface_vertice, surf_normal, points):
     if np.dot( surf_normal, v.flatten() ) >0: # this should be either 1 or -1. if >0, surf_normal needs the opposite
         surf_normal = -surf_normal
     return surf_normal
-    
-def compare_two_vec_difference(pool_vec, new_vec, tol=0.01):
-    v = np.copy( new_vec )
-    v[v==0] = 1e-9
-    diff = np.mean( np.abs((pool_vec - v)/v) , axis=1 )
-    return diff #np.amin( diff )
 
 def select_from_diversity(X_vec, Y_ener, num_of_candidates):
     """
@@ -102,28 +97,36 @@ def select_from_diversity(X_vec, Y_ener, num_of_candidates):
     The lowest Y will be picked and the rest can be high Y since they have far distance from X of the lowest Y.
     Therefore, we put a Y limit (e.g. pick X from the lowest Y values to avoid picking high Y)
     """
+    # Only consider the lowest several candidates
     sorted_idx = np.argsort(Y_ener)
     limit = np.amin( [len(sorted_idx), np.amax(num_of_candidates*5), int(0.2*len(sorted_idx))] )
-    Y_sorted = np.asarray(Y_ener)[sorted_idx][:limit]
+    #Y_sorted = np.asarray(Y_ener)[sorted_idx][:limit]
     X_sorted = np.asarray(X_vec)[sorted_idx][:limit]
-    # Always add the lowest Y candidate
-    X_sorted = X_sorted[:, np.std(X_sorted, axis=0)>1e-8]  # Remove zero variance columns
-    selected_mask = np.zeros(len(Y_sorted), dtype=bool)
-    selected = [0]  # The index for lowest Y
-    selected_mask[0] = True
-    # Precompute distance
-    diff = X_sorted[:, np.newaxis, :] - X_sorted[np.newaxis, :, :]
-    dists = np.linalg.norm(diff, axis=2)
-    min_dists = dists[:, 0]
-    # Find the remaining candidates
-    for _ in range(1, num_of_candidates):
-        min_dists[selected_mask] = -np.inf
-        next_idx = np.argmax(min_dists)
-        selected.append(next_idx)
-        selected_mask[next_idx] = True
-        min_dists = np.minimum(min_dists, dists[:, next_idx])
-    # Convert from index in the sorted list to index in the original list
-    return sorted_idx[selected]  
+    
+    M, D = X_sorted.shape
+    N = D // 6
+    # --- relative to column-wise pool average ---------------------------
+    X_avg = np.mean(X_sorted, axis=0, keepdims=True)   # (1, 6*N)
+    X_rel = (X_sorted - X_avg) / (X_avg + 1e-12)       # (M, 6*N)
+    S = X_rel.reshape(M, N, 6)                         # (M, N, 6)    
+    # pre-compute pairwise Hungarian distances
+    cost = np.zeros((M, M))
+    for i in range(M):
+        for j in range(i + 1, M):
+            C = np.linalg.norm(S[i][:, None, :] - S[j][None, :, :], axis=2)
+            d = C[linear_sum_assignment(C)].sum()
+            cost[i, j] = cost[j, i] = d 
+    # Always include lowest Y
+    chosen = np.zeros(num_of_candidates, dtype=int)   # pre-allocate answer
+    chosen[0] = 0       
+    # greedy farthest-point selection
+    chosen = np.zeros(num_of_candidates, int)
+    chosen[0] = 0
+    for r in range(1, num_of_candidates):
+        d_min = cost[:, chosen[:r]].min(axis=1)
+        d_min[chosen[:r]] = -np.inf
+        chosen[r] = d_min.argmax()
+    return sorted_idx[chosen]  
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040
