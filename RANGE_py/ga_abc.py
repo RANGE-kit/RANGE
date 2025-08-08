@@ -63,8 +63,9 @@ class GA_ABC():
         self.if_clip_candidate = if_clip_candidate
 
     # Initial colony from random generation if not restarting
-    def _init_colony(self):
-        print_code_info('Header')
+    def _init_colony(self, print_interval):
+        if print_interval is not None:
+            print_code_info('Header')
         if self.restart_from_pool is not None:   # Read existing database
             if os.path.exists(self.restart_from_pool):
                 if os.path.isfile(self.restart_from_pool): # From .db file
@@ -78,7 +79,8 @@ class GA_ABC():
                 self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
             else:
                 raise ValueError(f'{self.restart_from_pool} does not exist to restart. Either start from scratch or make sure this file exists.')
-            print(f"Initialization from previous generations in {self.restart_from_pool}")
+            if print_interval is not None:
+                print(f"Initialization from previous generations in {self.restart_from_pool}")
         else:
             lo, hi = self.bounds.T   # each is a 1D array, shape = D
             self.x = lo + (hi-lo)*np.random.rand( self.colony_size*5, self.bounds_dimension )  # get input X, shape = 5N*D
@@ -97,7 +99,8 @@ class GA_ABC():
             # Narrow down X and Y to colony size
             idx = select_from_diversity(self.x, self.y, self.colony_size)
             self.x, self.y = self.x[idx], self.y[idx]
-            print("Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) )
+            if print_interval is not None:
+                print("Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) )
         self.trial = np.zeros( self.colony_size , int)  # trial counter
         # initialize the track of bees: a dict of lists (bees). Every bee: a list of dict, each dict is a structure name:[x,y]
         #track_bees = { n:[ {self.pool_name[n]:[self.x[n],self.y[n]] } ] for n in range(self.colony_size) }
@@ -211,7 +214,7 @@ class GA_ABC():
     def run(self, print_interval=None, if_return_results=False):            
         start_time = time.time()
 
-        self._init_colony() 
+        self._init_colony(print_interval) 
         previous_pool_size = self.global_structure_index # Starting from this number of generations
         
         lo, hi = self.bounds.T
@@ -359,7 +362,8 @@ class GA_ABC():
                         print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
                 
         # Run completed
-        print(f"Completed with best Y: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
+        if print_interval is not None: 
+            print(f"Completed with best Y: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
         
         if if_return_results:
             return self.pool_x, self.pool_y, self.pool_name
