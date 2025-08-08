@@ -195,11 +195,12 @@ class GA_ABC():
         return offspring, y_off, offspring_compute_id
     
     def update_GM(self, new_x, new_y, new_id ):
-        if (self.best_y - new_y)/abs(self.best_y) > 1E-3:
+        if new_y < self.best_y:
             self.best_id = str(new_id)
             self.best_y = float(new_y)
             self.best_x = np.asarray(new_x)
-            self.best_trial = 0
+            if (self.best_y - new_y)/abs(self.best_y) > 1E-3:
+                self.best_trial = 0
         else:
             self.best_trial += 1
         ##print( '--> ', self.best_trial, self.best_y, self.best_id, new_y)
