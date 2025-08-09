@@ -9,7 +9,7 @@ import numpy as np
 import os
 import time
 from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, print_code_info
-from RANGE_py.utility import select_from_diversity
+from RANGE_py.utility import select_max_diversity
 
 
 class GA_ABC():
@@ -83,7 +83,7 @@ class GA_ABC():
                 print(f"Initialization from previous generations in {self.restart_from_pool}")
         else:
             lo, hi = self.bounds.T   # each is a 1D array, shape = D
-            self.x = lo + (hi-lo)*np.random.rand( self.colony_size*5, self.bounds_dimension )  # get input X, shape = 5N*D
+            self.x = lo + (hi-lo)*np.random.rand( self.colony_size*5, self.bounds_dimension )  # get input X, shape = 6N*D
             os.makedirs(self.output_directory, exist_ok=True)
             self.y, self.pool_name = [], []
             for n, initial_x_guess in enumerate(self.x):
@@ -97,7 +97,7 @@ class GA_ABC():
             self.y = np.array( self.y )
             self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
             # Narrow down X and Y to colony size
-            idx = select_from_diversity(self.x, self.y, self.colony_size)
+            idx = select_max_diversity(self.x, self.y, self.colony_size)
             self.x, self.y = self.x[idx], self.y[idx]
             if print_interval is not None:
                 print("Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) )

@@ -10,7 +10,7 @@ import numpy as np
 
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
 from scipy.spatial.transform import Rotation 
-from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import cdist
 
 
 def cartesian_to_ellipsoidal_deg(x, y, z, A, B, C):
@@ -91,7 +91,7 @@ def correct_surface_normal(one_surface_vertice, surf_normal, points):
         surf_normal = -surf_normal
     return surf_normal
 
-def select_from_diversity(X_vec, Y_ener, num_of_candidates):
+def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     """
     Note: if X and Y are from random results, this is fine. But if from a previously calculated result,
     The lowest Y will be picked and the rest can be high Y since they have far distance from X of the lowest Y.
@@ -100,33 +100,22 @@ def select_from_diversity(X_vec, Y_ener, num_of_candidates):
     # Only consider the lowest several candidates
     sorted_idx = np.argsort(Y_ener)
     limit = np.amin( [len(sorted_idx), np.amax(num_of_candidates*5), int(0.2*len(sorted_idx))] )
-    #Y_sorted = np.asarray(Y_ener)[sorted_idx][:limit]
-    X_sorted = np.asarray(X_vec)[sorted_idx][:limit]
+    X_sorted = np.asarray(X_vec)[sorted_idx][:limit]    
+    X_sorted = X_sorted[:, ~np.all(X_sorted == X_sorted[0, :], axis=0)]  ## Remove constant columns
+    X_sorted = (X_sorted - X_sorted.mean(axis=0)) / X_sorted.std(axis=0)  ## z-score normalization
     
-    M, D = X_sorted.shape
-    N = D // 6
-    # --- relative to column-wise pool average ---------------------------
-    X_avg = np.mean(X_sorted, axis=0, keepdims=True)   # (1, 6*N)
-    X_rel = (X_sorted - X_avg) / (X_avg + 1e-12)       # (M, 6*N)
-    S = X_rel.reshape(M, N, 6)                         # (M, N, 6)    
-    # pre-compute pairwise Hungarian distances
-    cost = np.zeros((M, M))
-    for i in range(M):
-        for j in range(i + 1, M):
-            C = np.linalg.norm(S[i][:, None, :] - S[j][None, :, :], axis=2)
-            d = C[linear_sum_assignment(C)].sum()
-            cost[i, j] = cost[j, i] = d 
-    # Always include lowest Y
-    chosen = np.zeros(num_of_candidates, dtype=int)   # pre-allocate answer
-    chosen[0] = 0       
-    # greedy farthest-point selection
-    chosen = np.zeros(num_of_candidates, int)
-    chosen[0] = 0
-    for r in range(1, num_of_candidates):
-        d_min = cost[:, chosen[:r]].min(axis=1)
-        d_min[chosen[:r]] = -np.inf
-        chosen[r] = d_min.argmax()
-    return sorted_idx[chosen]  
+    M = X_sorted.shape[0]
+    selected_indices = [0]
+    # Precompute pairwise distances in DOF space
+    distances = cdist(X_sorted, X_sorted, metric='euclidean')
+    
+    while len(selected_indices) < num_of_candidates:
+        remaining_indices = list(set(range(M)) - set(selected_indices))
+        min_distances = [min(distances[i, j] for j in selected_indices) for i in remaining_indices]
+        next_index = remaining_indices[np.argmax(min_distances)]
+        selected_indices.append(next_index)
+
+    return sorted_idx[selected_indices]  
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040

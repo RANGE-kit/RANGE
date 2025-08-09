@@ -10,7 +10,7 @@ import numpy as np
 
 from ase.io import read, write
 from ase.db import connect
-from RANGE_py.utility import select_from_diversity
+from RANGE_py.utility import select_max_diversity
             
                    
 def clean_directory(dir_path):
@@ -62,7 +62,7 @@ def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_str
     if selection_strategy=='all' or selection_strategy==None or num_of_strutures==len(energy): # All data
         idx = np.arange(len(energy))
     elif selection_strategy == 'lowest': # select from the lowest structure with high diversity
-        idx = select_from_diversity(vector, energy, num_of_strutures)
+        idx = select_max_diversity(vector, energy, num_of_strutures)
     elif selection_strategy == 'random':
         idx = np.random.choice(np.arange(len(energy)), size=num_of_strutures, replace=False) 
     else:
