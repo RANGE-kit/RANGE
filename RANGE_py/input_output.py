@@ -59,7 +59,7 @@ def read_structure_from_directory( directory_path, selection_strategy, num_of_st
     return  vec, ener, name, length_of_current_pool
 
 def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_strutures):
-    if selection_strategy=='all' or selection_strategy==None or num_of_strutures==len(energy): # All data
+    if selection_strategy=='all' or selection_strategy==None or num_of_strutures>=len(energy): # All data
         idx = np.arange(len(energy))
     elif selection_strategy == 'lowest': # select from the lowest structure with high diversity
         idx = select_max_diversity(vector, energy, num_of_strutures)
@@ -115,7 +115,7 @@ def save_energy_summary(output_file='energy_summary.log',
         use_source = 'directory'
     else:
         raise ValueError('No result is found' )
-    print('Read data from ', use_source)
+    print('Read data from: ', use_source)
     
     # Sort energy and write summary file
     sorted_idx = np.argsort(energy)
@@ -150,7 +150,7 @@ def save_energy_summary(output_file='energy_summary.log',
                  }
     # Get the GM structure
     gm_id = full_name[0]
-    print(gm_id)
+    print(gm_id, ' has GM with energy:', ranked_energies[0])
     if use_source == 'database':
         db = connect(db_path)
         for row in db.select():

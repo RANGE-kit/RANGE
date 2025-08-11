@@ -32,6 +32,7 @@ class GA_ABC():
                  
                  apply_algorithm = 'ABC_GA',
                  if_clip_candidate = True,
+                 early_stop_parameter = None
                 ):
         """
         obf_func: callable, function to provide target for minimize
@@ -61,6 +62,8 @@ class GA_ABC():
         
         self.apply_algorithm = apply_algorithm 
         self.if_clip_candidate = if_clip_candidate
+
+        self.early_stop_parameter = early_stop_parameter
 
     # Initial colony from random generation if not restarting
     def _init_colony(self, print_interval):
@@ -204,6 +207,19 @@ class GA_ABC():
         else:
             self.best_trial += 1
         ##print( '--> ', self.best_trial, self.best_y, self.best_id, new_y)
+
+    def early_stop(self, stop_para):
+        terminate_early = False
+        if stop_para is not None:  # if not empty
+            if 'Max_candidate' in stop_para:
+                terminate_early = self.global_structure_index > stop_para['Max_candidate'] 
+            elif 'Max_ratio' in stop_para and self.global_structure_index >1000:
+                terminate_early = self.best_trial/self.global_structure_index > stop_para['Max_ratio']
+            elif 'Max_lifetime' in stop_para:
+                terminate_early = self.best_trial > stop_para['Max_lifetime']
+            else:
+                raise  ValueError(f'Early stop only supports key: Max_candidate, Max_ratio, or Max_lifetime. Current early step is: {stop_para}')
+        return terminate_early
         
     def summarize_iteration(self, iteration_count, iteration_time, iteration_generation):
         output_line = f"Iteration: {iteration_count:5d} | best Y so far: {np.round(self.best_y,6):16.6f} | Lifetime: {self.best_trial:5d}"
@@ -230,18 +246,20 @@ class GA_ABC():
             ga_type = 1
             for it in range(1, self.max_iteration+1):
                 #  employed phase
+                em_limit = self.best_trial/self.global_structure_index
                 for i in range(self.colony_size):
-                    new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_em_{i}'
-                    self.global_structure_index += 1
-                    new_x = self._neighbor_search(i)
-                    new_y = self._greedy(i, new_x, new_id )
+                    if self.rng.random() < em_limit:
+                        new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_em_{i}'
+                        self.global_structure_index += 1
+                        new_x = self._neighbor_search(i)
+                        new_y = self._greedy(i, new_x, new_id )
                     
-                    self.update_GM(new_x, new_y, new_id )
+                        self.update_GM(new_x, new_y, new_id )
                     
-                    if if_return_results:
-                        self.pool_x = np.append( self.pool_x, [new_x], axis=0 )
-                        self.pool_y = np.append( self.pool_y, [new_y], axis=0 )
-                        self.pool_name.append(new_id)
+                        if if_return_results:
+                            self.pool_x = np.append( self.pool_x, [new_x], axis=0 )
+                            self.pool_y = np.append( self.pool_y, [new_y], axis=0 )
+                            self.pool_name.append(new_id)
                     
                 #  hybrid GA phase
                 if it % self.ga_interval == 0:
@@ -301,10 +319,13 @@ class GA_ABC():
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print(f'Dynamic info at Iteration {it:5d}: OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        print(f'Dynamic info at Iteration {it:5d}: EM_threshold={round(em_limit,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+
+                if self.early_stop(self.early_stop_parameter):
+                    break
                 
         # Approach 2: ABC in pyGlobOpt
-        if self.apply_algorithm == 'ABC_pyGlobOpt':
+        if self.apply_algorithm == 'ABC_random':
             #sorted_id = np.argsort(self.y)
             #self.y = self.y[sorted_id]
             #self.x = self.x[sorted_id]
@@ -345,6 +366,9 @@ class GA_ABC():
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
         
+                if self.early_stop(self.early_stop_parameter):
+                    break
+
         # Approach 3: native GA
         if self.apply_algorithm == 'GA_native':
             for it in range(1, self.max_iteration+1):
@@ -362,6 +386,9 @@ class GA_ABC():
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
                 
+                if self.early_stop(self.early_stop_parameter):
+                    break
+
         # Run completed
         if print_interval is not None: 
             print(f"Completed with best Y: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
