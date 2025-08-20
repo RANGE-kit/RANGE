@@ -90,11 +90,11 @@ axs[0].plot( x,y, color='m', marker='*', ms=10 )
 # Search minima
 bounds  = np.array([(-1.5, 1), (-0.5, 2)])
 opt = GA_ABC(target_function, bounds, 
-             colony_size=5, limit=10, max_iteration=100, 
-             ga_interval=1e10, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
+             colony_size=20, limit=10, max_iteration=20, 
+             ga_interval=5e10, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
              output_directory = 'results', 
              output_database = None,
-             apply_algorithm = 'ABC_GA', # 'GA_native','ABC_pyGlobOpt','ABC_GA'
+             apply_algorithm = 'ABC_GA', # 'GA_native','ABC_random','ABC_GA'
              )
 all_vec, all_V, all_name = opt.run(print_interval=None, if_return_results=True)
 
