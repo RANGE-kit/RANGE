@@ -99,22 +99,25 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     """
     # Only consider the lowest several candidates
     sorted_idx = np.argsort(Y_ener)
-    limit = np.amin( [len(sorted_idx), np.amax(num_of_candidates*5), int(0.2*len(sorted_idx))] )
+    limit = np.amin( [np.amax(num_of_candidates*5), int(0.2*len(sorted_idx))] )
+    limit = np.amax( [limit, num_of_candidates] )
     X_sorted = np.asarray(X_vec)[sorted_idx][:limit]    
     X_sorted = X_sorted[:, ~np.all(X_sorted == X_sorted[0, :], axis=0)]  ## Remove constant columns
     X_sorted = (X_sorted - X_sorted.mean(axis=0)) / X_sorted.std(axis=0)  ## z-score normalization
-    
-    M = X_sorted.shape[0]
-    selected_indices = [0]
-    # Precompute pairwise distances in DOF space
-    distances = cdist(X_sorted, X_sorted, metric='euclidean')
-    
-    while len(selected_indices) < num_of_candidates:
-        remaining_indices = list(set(range(M)) - set(selected_indices))
-        min_distances = [min(distances[i, j] for j in selected_indices) for i in remaining_indices]
-        next_index = remaining_indices[np.argmax(min_distances)]
-        selected_indices.append(next_index)
 
+    if limit > num_of_candidates:  # I have more candidates than what I want
+        M = X_sorted.shape[0]
+        selected_indices = [0]
+        # Precompute pairwise distances in DOF space
+        distances = cdist(X_sorted, X_sorted, metric='euclidean')
+
+        while len(selected_indices) < num_of_candidates:
+            remaining_indices = list(set(range(M)) - set(selected_indices))
+            min_distances = [min(distances[i, j] for j in selected_indices) for i in remaining_indices]
+            next_index = remaining_indices[np.argmax(min_distances)]
+            selected_indices.append(next_index)
+    else:
+        selected_indices = np.arange( num_of_candidates )
     return sorted_idx[selected_indices]  
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom

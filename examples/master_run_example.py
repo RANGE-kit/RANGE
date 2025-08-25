@@ -149,6 +149,7 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       colony_size=20,            # The number of bee in ABC algorithm
                       limit=30,                 # The upper threshold to convert a bee to scout bee
                       max_iteration=50,         # The max number of iterations
+                      initial_population_scaler=5,# How many initial guess to be made before search?
                       ga_interval=5,            # The interval iteration to call GA algorithm
                       ga_parents=5,             # The number of bees to mutate (must be no more than colony_size)
                       mutate_rate=0.2, mutat_sigma=0.05,            # The mutation factor in GA
