@@ -217,7 +217,7 @@ class GA_ABC():
             # If this is even a GM?
             if new_y < self.best_y:
                 self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
-                if (self.best_y - new_y)/abs(self.best_y) > 1E-3:
+                if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-3:
                     self.best_trial = 0
                 else:
                     self.best_trial += 1
@@ -369,7 +369,7 @@ class GA_ABC():
         elif self.apply_algorithm == 'ABC_GA':
             for it in range(1, self.max_iteration+1):
                 # Dynamic employed phase with GA. 
-                num_of_EM = int((self.best_trial/self.global_structure_index)*self.colony_size)
+                num_of_EM = np.amax( (1, int((self.best_trial/self.global_structure_index)*self.colony_size) ) )
                 for i in range(num_of_EM):
                     self.global_structure_index += 1
                     new_x, new_id = self._neighbor_search(-1)
