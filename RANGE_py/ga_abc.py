@@ -214,15 +214,15 @@ class GA_ABC():
         if new_y < np.amax(self.y):
             #self.trial[self.y < new_y] += 1
             self.x[idx], self.y[idx], self.trial[idx] = new_x, new_y, 0
-            # If this is even a GM?
-            if new_y < self.best_y:
+            # If this is even a GM? In stead of: if new_y < self.best_y:
+            if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-4:
+                self.best_trial = 0
                 self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
-                if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-3:
-                    self.best_trial = 0
-                else:
-                    self.best_trial += 1
+            else:
+                self.best_trial += 1
         else:
             self.trial += 1
+            self.best_trial += 1
         
     def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add):
         self.pool_x = np.append( self.pool_x, new_x_to_add, axis=0 )
