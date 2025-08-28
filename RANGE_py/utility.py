@@ -91,6 +91,15 @@ def correct_surface_normal(one_surface_vertice, surf_normal, points):
         surf_normal = -surf_normal
     return surf_normal
 
+def compute_differences(list_of_X, X_v2):
+    found_match = False
+    for i, X_v1 in enumerate(list_of_X):
+        diff = np.abs(X_v1 - X_v2)/(np.abs(X_v1)+np.abs(X_v2)+1E-10)
+        if np.mean(diff) < 1e-3:
+            found_match = i
+            break
+    return found_match
+
 def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     """
     Note: if X and Y are from random results, this is fine. But if from a previously calculated result,

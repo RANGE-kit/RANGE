@@ -74,12 +74,12 @@ class GA_ABC():
         if self.restart_from_pool is not None:   # Read existing database
             if os.path.exists(self.restart_from_pool):
                 if os.path.isfile(self.restart_from_pool): # From .db file
-                    self.x, self.y, names, previous_pool_size = read_structure_from_db( self.restart_from_pool, self.restart_strategy, self.colony_size )
+                    self.x, self.y, names, self.previous_pool_size = read_structure_from_db( self.restart_from_pool, self.restart_strategy, self.colony_size )
                 elif os.path.isdir(self.restart_from_pool):  # From results directory. This may be slow.
-                    self.x, self.y, names, previous_pool_size = read_structure_from_directory( self.restart_from_pool, self.restart_strategy, self.colony_size )
+                    self.x, self.y, names, self.previous_pool_size = read_structure_from_directory( self.restart_from_pool, self.restart_strategy, self.colony_size )
                 else:
                     raise ValueError(f'{self.restart_from_pool} cannot be read')
-                self.global_structure_index  += previous_pool_size
+                self.global_structure_index  += self.previous_pool_size 
                 self.pool_name = list(names)
                 self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
             else:
@@ -87,6 +87,7 @@ class GA_ABC():
             if print_interval is not None: 
                 print(f"Initialization from previous generations in {self.restart_from_pool}")
         else: 
+            self.previous_pool_size = 0
             lo, hi = self.bounds.T   # Each is a 1D array, with shape = D 
             self.x = lo + (hi-lo)*np.random.rand( self.colony_size*self.initial_population_scaler, self.bounds_dimension )  # get input X, shape = 6N*D
             os.makedirs(self.output_directory, exist_ok=True)
@@ -223,12 +224,17 @@ class GA_ABC():
         else:
             self.trial += 1
             self.best_trial += 1
+        print( new_id, self.get_best_trail_ratio() )
         
     def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add):
         self.pool_x = np.append( self.pool_x, new_x_to_add, axis=0 )
         self.pool_y = np.append( self.pool_y, new_y_to_add, axis=0 )
         self.pool_name += new_name_to_add
 
+    def get_best_trail_ratio(self):
+        ratio = self.best_trial/(self.global_structure_index - self.previous_pool_size) 
+        return ratio
+    
     def early_stop(self, stop_para):
         terminate_early = False
         if stop_para is not None:  # if not empty
@@ -253,14 +259,13 @@ class GA_ABC():
         start_time = time.time()
 
         self._init_colony(print_interval) 
-        previous_pool_size = self.global_structure_index # Starting from this number of generations
         
         lo, hi = self.bounds.T
         current_time = time.time() - start_time
         # Kepp log info as we run 
         if print_interval is not None: 
             with open("log_of_RANGE.log", 'a') as f1:
-                f1.write( f"Start iteration based on initial pool of {len(self.y)} solutions from {previous_pool_size} candidates. Current time cost: {round(current_time,3)}\n" )
+                f1.write( f"Start iteration based on initial pool of {len(self.y)} solutions from {self.previous_pool_size} candidates. Current time cost: {round(current_time,3)}\n" )
                
         # Approach 1: native ABC
         if self.apply_algorithm == 'ABC_native':
@@ -305,7 +310,7 @@ class GA_ABC():
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:  
-                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - previous_pool_size)
+                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
@@ -340,7 +345,7 @@ class GA_ABC():
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:  
-                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - previous_pool_size)
+                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
@@ -357,7 +362,7 @@ class GA_ABC():
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:
-                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - previous_pool_size)
+                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
@@ -369,7 +374,7 @@ class GA_ABC():
         elif self.apply_algorithm == 'ABC_GA':
             for it in range(1, self.max_iteration+1):
                 # Dynamic employed phase with GA. 
-                num_of_EM = np.amax( (1, int((self.best_trial/self.global_structure_index)*self.colony_size) ) )
+                num_of_EM = np.amax( (1, int(self.get_best_trail_ratio()*self.colony_size/2)) )
                 for i in range(num_of_EM):
                     self.global_structure_index += 1
                     new_x, new_id = self._neighbor_search(-1)
@@ -392,7 +397,7 @@ class GA_ABC():
                 
                 # Dynamic onlooker phase with GA. 
                 # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002 
-                num_of_OL = int((1-self.best_trial/self.global_structure_index)*self.colony_size/2) 
+                num_of_OL = np.amax( (1, int((1-self.get_best_trail_ratio())*self.colony_size/2)) )
                 for i in range(num_of_OL): 
                     idxs = np.random.choice(self.colony_size, size=4, replace=False) 
                     new_x = self.best_x + self.rng.random()*(self.x[idxs[0]]+self.x[idxs[1]]-self.x[idxs[2]]-self.x[idxs[3]]) 
@@ -424,9 +429,9 @@ class GA_ABC():
                     if self.trial[i] >= sc_limit:  # Need to kick this bee
                         self.global_structure_index += 1
                         new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_sc_{i}'
-                        if self.best_trial/self.global_structure_index <0.3:  # Use GA to strongly mutate best X if not stuck at GM too much
+                        if self.best_trial/self.global_structure_index <0.5:  # Use GA to strongly mutate best X if not stuck at GM too much
                             new_id += '_from_GM'
-                            noise = np.random.randn(self.bounds_dimension)*0.2*(self.bounds[:,1]-self.bounds[:,0])
+                            noise = np.random.randn(self.bounds_dimension)*0.3*(self.bounds[:,1]-self.bounds[:,0])
                             self.x[i] = np.clip(self.best_x + noise, self.bounds[:,0], self.bounds[:,1])
                         else:  # All random generation (SC bee)
                             self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
@@ -440,7 +445,7 @@ class GA_ABC():
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:
-                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - previous_pool_size)
+                        output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
