@@ -101,33 +101,40 @@ def compute_differences(list_of_X, X_v2):
     return found_match
 
 def select_max_diversity(X_vec, Y_ener, num_of_candidates):
-    """
-    Note: if X and Y are from random results, this is fine. But if from a previously calculated result,
-    The lowest Y will be picked and the rest can be high Y since they have far distance from X of the lowest Y.
-    Therefore, we put a Y limit (e.g. pick X from the lowest Y values to avoid picking high Y)
-    """
-    # Only consider the lowest several candidates
     sorted_idx = np.argsort(Y_ener)
-    limit = np.amin( [np.amax(num_of_candidates*5), int(0.2*len(sorted_idx))] )
-    limit = np.amax( [limit, num_of_candidates] )
-    X_sorted = np.asarray(X_vec)[sorted_idx][:limit]    
+    X_sorted = np.asarray(X_vec)[sorted_idx]
     X_sorted = X_sorted[:, ~np.all(X_sorted == X_sorted[0, :], axis=0)]  ## Remove constant columns
     X_sorted = (X_sorted - X_sorted.mean(axis=0)) / X_sorted.std(axis=0)  ## z-score normalization
-
-    if limit > num_of_candidates:  # I have more candidates than what I want
-        M = X_sorted.shape[0]
-        selected_indices = [0]
-        # Precompute pairwise distances in DOF space
-        distances = cdist(X_sorted, X_sorted, metric='euclidean')
-
-        while len(selected_indices) < num_of_candidates:
-            remaining_indices = list(set(range(M)) - set(selected_indices))
-            min_distances = [min(distances[i, j] for j in selected_indices) for i in remaining_indices]
-            next_index = remaining_indices[np.argmax(min_distances)]
-            selected_indices.append(next_index)
-    else:
-        selected_indices = np.arange( num_of_candidates )
-    return sorted_idx[selected_indices]  
+    Y_sorted = np.round( np.asarray(Y_ener)[sorted_idx] , 6 )
+    # Bin candidates by energy
+    bin_size = np.abs(Y_sorted[0])*1E-4 # 0.1% of GM
+    bins = {}
+    for n in range( len(Y_sorted) ):
+        idx = int( Y_sorted[n] / bin_size )
+        if idx in bins:
+            bins[idx].append( n )
+        else:
+            bins[idx] = [ n ]
+    keys = sorted(list(bins.keys()))
+    # pick candidate from bins
+    selected_indices = []
+    num_cand_per_bin = np.amax( (2, int(num_of_candidates/len(keys))) )
+    bin_idx = 0
+    while len(selected_indices) < num_of_candidates:
+        idx = bins[ keys[bin_idx] ]
+        if Y_sorted[idx][-1] - Y_sorted[idx][0] < 1E-5: # Same Y in this bin
+            diff = np.mean(np.abs( X_sorted[idx]-X_sorted[idx[0]] ) , axis=1)
+            if np.amax(diff) > 0.1:
+                selected_indices += [idx[0], idx[np.argmax(diff)]]
+            else:
+                selected_indices += [idx[0]]
+        elif len(idx)>num_cand_per_bin:
+            diff = np.mean(np.abs( X_sorted[idx]-X_sorted[idx[0]] ) , axis=1)
+            selected_indices += [idx[0], idx[np.argmax(diff)]] #[ [n*cand_interval] for n in range(num_cand_per_bin) ]
+        else:
+            selected_indices += [idx[0]]
+        bin_idx += 1
+    return sorted_idx[selected_indices]
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040

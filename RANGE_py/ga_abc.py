@@ -224,16 +224,15 @@ class GA_ABC():
         else:
             self.trial += 1
             self.best_trial += 1
-        print( new_id, self.get_best_trail_ratio() )
         
     def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add):
         self.pool_x = np.append( self.pool_x, new_x_to_add, axis=0 )
         self.pool_y = np.append( self.pool_y, new_y_to_add, axis=0 )
         self.pool_name += new_name_to_add
 
-    def get_best_trail_ratio(self):
-        ratio = self.best_trial/(self.global_structure_index - self.previous_pool_size) 
-        return ratio
+    def get_best_ratio(self):
+        ratio = self.best_trial/(self.global_structure_index - self.previous_pool_size + 1e-10)
+        return  ratio
     
     def early_stop(self, stop_para):
         terminate_early = False
@@ -374,7 +373,7 @@ class GA_ABC():
         elif self.apply_algorithm == 'ABC_GA':
             for it in range(1, self.max_iteration+1):
                 # Dynamic employed phase with GA. 
-                num_of_EM = np.amax( (1, int(self.get_best_trail_ratio()*self.colony_size/2)) )
+                num_of_EM = int( np.amax( (1, self.get_best_ratio()*self.colony_size/2 ) ) )
                 for i in range(num_of_EM):
                     self.global_structure_index += 1
                     new_x, new_id = self._neighbor_search(-1)
@@ -397,7 +396,7 @@ class GA_ABC():
                 
                 # Dynamic onlooker phase with GA. 
                 # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002 
-                num_of_OL = np.amax( (1, int((1-self.get_best_trail_ratio())*self.colony_size/2)) )
+                num_of_OL = int( np.amax( (1, (1-self.get_best_ratio())*self.colony_size/2 ) ) )
                 for i in range(num_of_OL): 
                     idxs = np.random.choice(self.colony_size, size=4, replace=False) 
                     new_x = self.best_x + self.rng.random()*(self.x[idxs[0]]+self.x[idxs[1]]-self.x[idxs[2]]-self.x[idxs[3]]) 
@@ -424,7 +423,7 @@ class GA_ABC():
 
                 #  Dynamic scout phase with GA
                 # Higher threshold when global is improving fast. Otherwise lower to explore more than exploiate.
-                sc_limit = round( (1-self.best_trial/self.global_structure_index)*self.limit + (self.best_trial/self.global_structure_index)*5 )
+                sc_limit = round( (1-self.get_best_ratio())*self.limit + self.get_best_ratio()*5 )
                 for i in range(self.colony_size):
                     if self.trial[i] >= sc_limit:  # Need to kick this bee
                         self.global_structure_index += 1
@@ -448,8 +447,8 @@ class GA_ABC():
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print(f'Dynamic info at Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} for best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
-
+                        print(f'Dynamic info at End of Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} performed to find best_Y={self.best_y:16.6} Life={self.best_trial:5d} Total_size={self.global_structure_index:5d} Generate_size={self.global_structure_index-self.previous_pool_size:5d} with current Ratio={np.round(self.get_best_ratio(),2)}')
+                        print( 'Bee values: ', ' '.join(list(self.y.astype('str'))) )
                 if self.early_stop(self.early_stop_parameter):
                     break
                 
