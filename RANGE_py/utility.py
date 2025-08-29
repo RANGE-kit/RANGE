@@ -91,14 +91,9 @@ def correct_surface_normal(one_surface_vertice, surf_normal, points):
         surf_normal = -surf_normal
     return surf_normal
 
-def compute_differences(list_of_X, X_v2):
-    found_match = False
-    for i, X_v1 in enumerate(list_of_X):
-        diff = np.abs(X_v1 - X_v2)/(np.abs(X_v1)+np.abs(X_v2)+1E-10)
-        if np.mean(diff) < 1e-3:
-            found_match = i
-            break
-    return found_match
+def compute_differences(list_of_X, X_ref):
+    diff = np.mean(np.abs( np.asarray(list_of_X) - X_ref ) , axis=1)
+    return diff
 
 def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     sorted_idx = np.argsort(Y_ener)
@@ -123,13 +118,13 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     while len(selected_indices) < num_of_candidates:
         idx = bins[ keys[bin_idx] ]
         if Y_sorted[idx][-1] - Y_sorted[idx][0] < 1E-5: # Same Y in this bin
-            diff = np.mean(np.abs( X_sorted[idx]-X_sorted[idx[0]] ) , axis=1)
+            diff = compute_differences( X_sorted[idx], X_sorted[idx[0]] )
             if np.amax(diff) > 0.1:
                 selected_indices += [idx[0], idx[np.argmax(diff)]]
             else:
                 selected_indices += [idx[0]]
         elif len(idx)>num_cand_per_bin:
-            diff = np.mean(np.abs( X_sorted[idx]-X_sorted[idx[0]] ) , axis=1)
+            diff = compute_differences( X_sorted[idx], X_sorted[idx[0]] )
             selected_indices += [idx[0], idx[np.argmax(diff)]] #[ [n*cand_interval] for n in range(num_cand_per_bin) ]
         else:
             selected_indices += [idx[0]]

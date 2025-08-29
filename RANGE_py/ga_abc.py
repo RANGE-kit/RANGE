@@ -9,7 +9,7 @@ import numpy as np
 import os
 import time
 from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, print_code_info
-from RANGE_py.utility import select_max_diversity
+from RANGE_py.utility import select_max_diversity, compute_differences
 
 
 class GA_ABC():
@@ -211,18 +211,22 @@ class GA_ABC():
         
     # Greedy update for bee locations
     def update_bee_location(self, new_x, new_y, new_id ):
-        idx = np.argmax(self.y)
-        if new_y < np.amax(self.y):
-            #self.trial[self.y < new_y] += 1
-            self.x[idx], self.y[idx], self.trial[idx] = new_x, new_y, 0
-            # If this is even a GM? In stead of: if new_y < self.best_y:
-            if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-4:
-                self.best_trial = 0
-                self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
-            else:
+        # If the new X is the same as the current bee, do not duplicate
+        diff = compute_differences( self.x, new_x )
+        if np.all(diff>1E-3): # All are different
+            if new_y > np.amax(self.y): # A bad candidate
+                self.trial += 1
                 self.best_trial += 1
-        else:
-            self.trial += 1
+            else:
+                idx = np.argmax(self.y)
+                self.trial[ self.y < new_y ] += 1
+                self.x[idx], self.y[idx], self.trial[idx] = new_x, new_y, 0
+                if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-4: # If a new best Y
+                    self.best_trial = 0
+                    self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
+                else:
+                    self.best_trial += 1
+        else: # No update on current bees
             self.best_trial += 1
         
     def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add):
@@ -423,7 +427,7 @@ class GA_ABC():
 
                 #  Dynamic scout phase with GA
                 # Higher threshold when global is improving fast. Otherwise lower to explore more than exploiate.
-                sc_limit = round( (1-self.get_best_ratio())*self.limit + self.get_best_ratio()*5 )
+                sc_limit = round( (1-self.get_best_ratio())*self.limit + self.get_best_ratio()*20 )
                 for i in range(self.colony_size):
                     if self.trial[i] >= sc_limit:  # Need to kick this bee
                         self.global_structure_index += 1
@@ -438,7 +442,7 @@ class GA_ABC():
                         save_structure_to_db(atoms, self.x[i], self.y[i], new_id, self.output_database )
                         self.trial[i] = 0
                         # Update X and Y
-                        self.update_bee_location(self.x[i], self.y[i], new_id )
+                        #self.update_bee_location(self.x[i], self.y[i], new_id )
                         if if_return_results:
                             self.add_to_pool( [self.x[i]], [self.y[i]], new_id )
                     
@@ -448,7 +452,7 @@ class GA_ABC():
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
                         print(f'Dynamic info at End of Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} performed to find best_Y={self.best_y:16.6} Life={self.best_trial:5d} Total_size={self.global_structure_index:5d} Generate_size={self.global_structure_index-self.previous_pool_size:5d} with current Ratio={np.round(self.get_best_ratio(),2)}')
-                        print( 'Bee values: ', ' '.join(list(self.y.astype('str'))) )
+                        print( f'Bee values : {it:5d}', ' '.join(list(self.y.astype('str'))) )
                 if self.early_stop(self.early_stop_parameter):
                     break
                 
