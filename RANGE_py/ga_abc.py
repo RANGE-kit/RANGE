@@ -72,18 +72,29 @@ class GA_ABC():
         if print_interval is not None:
             print_code_info('Header')
         if self.restart_from_pool is not None:   # Read existing database
-            if os.path.exists(self.restart_from_pool):
+            if isinstance(self.restart_from_pool, str):
+                assert os.path.exists(self.restart_from_pool), '{self.restart_from_pool} does not exist!'
                 if os.path.isfile(self.restart_from_pool): # From .db file
                     self.x, self.y, names, self.previous_pool_size = read_structure_from_db( self.restart_from_pool, self.restart_strategy, self.colony_size )
                 elif os.path.isdir(self.restart_from_pool):  # From results directory. This may be slow.
                     self.x, self.y, names, self.previous_pool_size = read_structure_from_directory( self.restart_from_pool, self.restart_strategy, self.colony_size )
                 else:
-                    raise ValueError(f'{self.restart_from_pool} cannot be read')
-                self.global_structure_index  += self.previous_pool_size 
-                self.pool_name = list(names)
-                self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
+                    ValueError(f'{self.restart_from_pool} cannot be read')
+            elif isinstance(self.restart_from_pool, dict):
+                assert len(self.restart_from_pool) == self.colony_size
+                self.previous_pool_size = len(self.restart_from_pool)
+                self.x, self.y, names = [],[],[]
+                for k,v in self.restart_from_pool.items():
+                    self.x.append( v[0] )
+                    self.y.append( v[1] )
+                    names.append( k )
+                self.x = np.array( self.x ) 
+                self.y = np.array( self.y ) 
             else:
-                raise ValueError(f'{self.restart_from_pool} does not exist to restart. Either start from scratch or make sure this file exists.')
+                raise ValueError(f'{self.restart_from_pool} does not exist to restart. Either start from dict, scratch, or a file.')
+            self.global_structure_index  += self.previous_pool_size 
+            self.pool_name = list(names)
+            self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
             if print_interval is not None: 
                 print(f"Initialization from previous generations in {self.restart_from_pool}")
         else: 
@@ -165,18 +176,17 @@ class GA_ABC():
         
     def _ga_step(self, iteration_idx, ga_type):
         sorted_y_index = np.argsort(self.y)
-        #worst_idx = sorted_y_index[-self.ga_parents:]  # Find the worst candidates
-        elite_idx = sorted_y_index[:self.ga_parents]  # select elite parents from the best candidates
+        elite_idx = sorted_y_index[:int(self.colony_size/2)]  # select elite parents from the best candidates
         parents = self.x[elite_idx]
         # generate offspring ( number of offspring = number of parents )
         offspring, offspring_compute_id, y_off = [], [], []
         for i in range( len(parents) ):
             if ga_type>0:
-                p1, p2 = np.random.choice(self.ga_parents, 2, replace=False) # The parent index in elite_idx
+                p1, p2 = np.random.choice(len(elite_idx), 2, replace=False) # The parent index in elite_idx
                 compute_id = f'_round_{iteration_idx}_ga_{i}_from_{elite_idx[p1]}_{elite_idx[p2]}' 
                 p1, p2 = parents[[p1,p2]]
             else:
-                p1 = np.random.choice(self.ga_parents)
+                p1 = np.random.choice(len(elite_idx))
                 compute_id = f'_round_{iteration_idx}_ga_{i}_from_{elite_idx[p1]}_GM'
                 p1, p2 = parents[p1], self.best_x[:]
             # From two parents to a child
@@ -219,6 +229,7 @@ class GA_ABC():
                 self.best_trial += 1
             else:
                 idx = np.argmax(self.y)
+                assert len(self.y)==len(self.trial), f'{len(self.y)} {len(self.trial)}'
                 self.trial[ self.y < new_y ] += 1
                 self.x[idx], self.y[idx], self.trial[idx] = new_x, new_y, 0
                 if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-4: # If a new best Y
