@@ -210,7 +210,7 @@ class GA_ABC():
         worse_idx = abs(int(self.colony_size/2) - int(self.ga_parents/2)) # Find the candidates to compete
         #elite_idx = sorted_y_index[:int(self.colony_size/2)]  # select elite parents from the best candidates        
         offspring, offspring_compute_id, y_off = [], [], []
-        num_of_GA = int(self.get_best_ratio()*self.ga_parents)
+        num_of_GA = max( 1, int(self.get_best_ratio()*self.ga_parents) )
         for ii in range(num_of_GA):
             self.global_structure_index += 1 
             new_x, new_id = self._ga_production(ga_type) 
