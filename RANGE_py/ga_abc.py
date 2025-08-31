@@ -14,13 +14,13 @@ from RANGE_py.utility import select_max_diversity, compute_differences
 
 class GA_ABC():
     def __init__(self, obj_func, bounds,
-                 colony_size = 30,  # number of food source ( = employed bees ) 
-                 limit = 20,       # couter threshold for going to scout 
-                 max_iteration = 200, # max iteration steps 
+                 colony_size = 20,  # number of food source ( = employed bees ) 
+                 limit = 50,       # couter threshold for going to scout 
+                 max_iteration = 100, # max iteration steps 
                  initial_population_scaler = 5, # How many initial population
 
-                 ga_interval = 10 ,  # how often to perform GA
-                 ga_parents = 10 ,  # how many elite parents to mate in each GA step. 
+                 ga_interval = 1 ,  # how often to perform GA
+                 ga_parents = 10 ,  # how many GA performed in every activation. 
                  mutate_rate = 0.5 ,
                  mutat_sigma = 0.01 ,
                  
@@ -119,10 +119,6 @@ class GA_ABC():
             if print_interval is not None: 
                 print("Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) ) 
         self.trial = np.zeros( self.colony_size , int)  # trial counter... 
-        # initialize the track of bees: a dict of lists (bees). Every bee: a list of dict, each dict is a structure name:[x,y]
-        #track_bees = { n:[ {self.pool_name[n]:[self.x[n],self.y[n]] } ] for n in range(self.colony_size) }
-        # This can also be achieved by post-analysis of the compute names. So comment it out.
-        
         # The best X and Y at the begining
         best_idx = np.argmin(self.y) 
         self.best_id = np.copy( self.pool_name[best_idx] ) 
@@ -146,79 +142,7 @@ class GA_ABC():
             v = np.clip(v, self.bounds[:,0], self.bounds[:,1]) 
         v_id = f'{k1}_{k2}_{k3}'
         return v, v_id
-        
-    # Greedy update for two individuals:
-    def _greedy_update(self, i , cand, compute_id):
-        cand, y_cand, atoms = self.func( cand , compute_id, self.output_directory )
-        save_structure_to_db(atoms, cand, y_cand, compute_id, self.output_database )
-        if y_cand < self.y[i]:
-            self.x[i] ,self.y[i] = cand, y_cand
-            self.trial[i] = 0
-        else:
-            self.trial[i] += 1
-        return y_cand
-    
-    # GA functions
-    def _uniform_crossover(self, p1, p2):
-        mask = np.random.rand(self.bounds_dimension) < 0.5
-        child = np.where(mask, p1, p2)
-        return child
-        
-    def _mutate(self, child):
-        mutate_sigma =self.mutate_sigma*(1 + 5*self.best_trial/self.global_structure_index)
-        if np.random.rand() < self.mutate_rate:
-            noise = np.random.randn(self.bounds_dimension) * mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
-            if self.if_clip_candidate:
-                child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
-            else:
-                child = child + noise
-        return child
-        
-    def _ga_step(self, iteration_idx, ga_type):
-        sorted_y_index = np.argsort(self.y)
-        elite_idx = sorted_y_index[:int(self.colony_size/2)]  # select elite parents from the best candidates
-        parents = self.x[elite_idx]
-        # generate offspring ( number of offspring = number of parents )
-        offspring, offspring_compute_id, y_off = [], [], []
-        for i in range( len(parents) ):
-            if ga_type>0:
-                p1, p2 = np.random.choice(len(elite_idx), 2, replace=False) # The parent index in elite_idx
-                compute_id = f'_round_{iteration_idx}_ga_{i}_from_{elite_idx[p1]}_{elite_idx[p2]}' 
-                p1, p2 = parents[[p1,p2]]
-            else:
-                p1 = np.random.choice(len(elite_idx))
-                compute_id = f'_round_{iteration_idx}_ga_{i}_from_{elite_idx[p1]}_GM'
-                p1, p2 = parents[p1], self.best_x[:]
-            # From two parents to a child
-            child  = self._uniform_crossover(p1, p2)
-            child  = self._mutate(child)
-            self.global_structure_index += 1
-            compute_id = self.output_header + f"{self.global_structure_index:06d}" + compute_id
-            new_x, new_y, atoms = self.func( child , compute_id , self.output_directory )
-            save_structure_to_db(atoms, new_x, new_y, compute_id , self.output_database )
-            # Replace the worst parents by offspring if offspring has lower Y
-            self.update_bee_location(new_x, new_y, compute_id )
 
-            offspring.append(new_x)
-            y_off.append(new_y)
-            offspring_compute_id.append(compute_id)
-        return  np.asarray(offspring), np.asarray(y_off), offspring_compute_id 
-    
-    def _ga_search(self, ga_type):
-        if ga_type>0:
-            p = (np.amax(self.y) - self.y)/(np.amax(self.y)-np.amin(self.y)+1e-8)+1e-8
-            p1, p2 = np.random.choice(self.colony_size, 2, replace=False, p=p/np.sum(p))
-            compute_id = f'_from_{p1}_{p2}'
-            p1, p2 = self.x[p1], self.x[p2]
-        else:
-            p1 = np.random.choice(self.colony_size)
-            compute_id = f'_from_{p1}_GM'
-            p1, p2 = self.x[p1], self.best_x[:]
-        # From two parents to a child
-        child  = self._uniform_crossover(p1, p2)
-        child  = self._mutate(child)
-        return child, compute_id
-        
     # Greedy update for bee locations
     def update_bee_location(self, new_x, new_y, new_id ):
         # If the new X is the same as the current bee, do not duplicate
@@ -237,8 +161,69 @@ class GA_ABC():
                     self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
                 else:
                     self.best_trial += 1
-        else: # No update on current bees
-            self.best_trial += 1
+        else: # No update on current bees due to duplicated new X
+            self.best_trial += 1        
+    
+    # GA functions
+    def _greedy_update_GA(self, current_i , new_x, new_y):
+        diff = compute_differences( self.x, new_x )
+        if np.all(diff>1E-3): # All are different
+            if new_y < self.y[current_i]:
+                self.x[current_i] ,self.y[current_i] = new_x, new_y
+                self.trial[current_i] = 0
+            else:
+                self.trial[current_i] += 1  
+        self.best_trial += 1    # We don't compare to GM here    
+            
+    def _uniform_crossover(self, p1, p2):
+        mask = np.random.rand(self.bounds_dimension) < 0.5
+        child = np.where(mask, p1, p2)
+        return child
+        
+    def _mutate(self, child):
+        mutate_sigma =self.mutate_sigma*(1 + 5*self.best_trial/self.global_structure_index)
+        if np.random.rand() < self.mutate_rate:
+            noise = np.random.randn(self.bounds_dimension) * mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
+            if self.if_clip_candidate:
+                child = np.clip(child + noise, self.bounds[:,0], self.bounds[:,1])
+            else:
+                child = child + noise
+        return child
+    
+    def _ga_production(self, ga_type):
+        if ga_type>0:
+            p = (np.amax(self.y) - self.y)/(np.amax(self.y)-np.amin(self.y)+1e-8)+1e-8
+            p1, p2 = np.random.choice(self.colony_size, 2, replace=False, p=p/np.sum(p))
+            compute_id = f'_from_{p1}_{p2}'
+            p1, p2 = self.x[p1], self.x[p2]
+        else:
+            p1 = np.random.choice(self.colony_size)
+            compute_id = f'_from_{p1}_GM'
+            p1, p2 = self.x[p1], self.best_x[:]
+        # From two parents to a child
+        child  = self._uniform_crossover(p1, p2)
+        #child  = self._mutate(child)
+        return child, compute_id
+        
+    def _ga_step(self, iteration_idx, ga_type):
+        sorted_y_index = np.argsort(self.y)
+        worse_idx = abs(int(self.colony_size/2) - int(self.ga_parents/2)) # Find the candidates to compete
+        #elite_idx = sorted_y_index[:int(self.colony_size/2)]  # select elite parents from the best candidates        
+        offspring, offspring_compute_id, y_off = [], [], []
+        for ii in range(self.ga_parents):
+            self.global_structure_index += 1 
+            new_x, new_id = self._ga_production(ga_type) 
+            new_id = self.output_header + f"{self.global_structure_index:06d}_round_{iteration_idx}_ga_{ii}" + new_id 
+            new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory ) 
+            save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database ) 
+            #self.update_bee_location(new_x, new_y, new_id ) 
+            self._greedy_update_GA(sorted_y_index[worse_idx+ii], new_x, new_y)
+            
+            offspring.append(new_x)
+            y_off.append(new_y)
+            offspring_compute_id.append(new_id)
+        return  np.asarray(offspring), np.asarray(y_off), offspring_compute_id     
+        
         
     def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add):
         self.pool_x = np.append( self.pool_x, new_x_to_add, axis=0 )
@@ -370,9 +355,9 @@ class GA_ABC():
         # Approach 3: native GA
         elif self.apply_algorithm == 'GA_native':
             for it in range(1, self.max_iteration+1):
-                new_x_ga, new_y_ga, new_id = self._ga_step( it, 1 )
+                new_xs, new_ys, new_ids = self._ga_step( it, 1 )
                 if if_return_results:
-                    self.add_to_pool(new_x_ga, new_y_ga, new_id)
+                    self.add_to_pool(new_xs, new_ys, new_ids)
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:
@@ -398,16 +383,6 @@ class GA_ABC():
                     self.update_bee_location(new_x, new_y, new_id )
                     if if_return_results:
                         self.add_to_pool([new_x], [new_y], new_id) 
-                    # GA Operate like EM bees
-                    if it % self.ga_interval == 0:
-                        self.global_structure_index += 1 
-                        new_x, new_id = self._ga_search(1) 
-                        new_id = self.output_header + f"{self.global_structure_index:06d}_round_{it}_ga_{i}" + new_id 
-                        new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory ) 
-                        save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database ) 
-                        self.update_bee_location(new_x, new_y, new_id ) 
-                        if if_return_results:
-                            self.add_to_pool([new_x], [new_y], new_id) 
                 
                 # Dynamic onlooker phase with GA. 
                 # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002 
@@ -425,35 +400,33 @@ class GA_ABC():
                     self.update_bee_location(new_x, new_y, new_id )
                     if if_return_results:
                         self.add_to_pool([new_x], [new_y], new_id)
-                    # GA Operate like OL bees
-                    if it % self.ga_interval == 0:
-                        self.global_structure_index += 1 
-                        new_x, new_id = self._ga_search(-1) 
-                        new_id = self.output_header + f"{self.global_structure_index:06d}_round_{it}_ga_{i}" + new_id 
-                        new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory ) 
-                        save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database ) 
-                        self.update_bee_location(new_x, new_y, new_id ) 
-                        if if_return_results:
-                            self.add_to_pool([new_x], [new_y], new_id) 
+                            
+                # GA step
+                if it % self.ga_interval == 0:
+                    new_xs, new_ys, new_ids = self._ga_step( it, 1 )
+                    if if_return_results:
+                        self.add_to_pool(new_xs, new_ys, new_ids)
 
-                #  Dynamic scout phase with GA
+                # Dynamic scout phase with GA
                 # Higher threshold when global is improving fast. Otherwise lower to explore more than exploiate.
                 sc_limit = round( (1-self.get_best_ratio())*self.limit + self.get_best_ratio()*20 )
                 for i in range(self.colony_size):
                     if self.trial[i] >= sc_limit:  # Need to kick this bee
                         self.global_structure_index += 1
                         new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_sc_{i}'
-                        if self.best_trial/self.global_structure_index <0.5:  # Use GA to strongly mutate best X if not stuck at GM too much
+                        # Instead of random, we go to the oppo direction of GA crossover
+                        new_x = lo + hi - self._uniform_crossover(self.best_x[:], self.x[i])
+                        diff = compute_differences( self.x, new_x )
+                        if np.all(diff>1E-2): # All different from current X
                             new_id += '_from_GM'
-                            noise = np.random.randn(self.bounds_dimension)*0.3*(self.bounds[:,1]-self.bounds[:,0])
-                            self.x[i] = np.clip(self.best_x + noise, self.bounds[:,0], self.bounds[:,1])
-                        else:  # All random generation (SC bee)
-                            self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
-                        self.x[i], self.y[i] , atoms = self.func(self.x[i], new_id , self.output_directory )
+                        else:
+                            new_x = lo + (hi-lo)*np.random.rand(self.bounds_dimension)  # Random
+                        self.x[i], self.y[i] , atoms = self.func(new_x, new_id , self.output_directory )
                         save_structure_to_db(atoms, self.x[i], self.y[i], new_id, self.output_database )
                         self.trial[i] = 0
-                        # Update X and Y
                         #self.update_bee_location(self.x[i], self.y[i], new_id )
+                        self.best_trial += 1 
+                        
                         if if_return_results:
                             self.add_to_pool( [self.x[i]], [self.y[i]], new_id )
                     

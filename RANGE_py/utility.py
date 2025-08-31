@@ -129,6 +129,7 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
         else:
             selected_indices += [idx[0]]
         bin_idx += 1
+    selected_indices = selected_indices[:num_of_candidates]  # To avoid over-adding
     return sorted_idx[selected_indices]
 
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
