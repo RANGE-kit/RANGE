@@ -548,7 +548,7 @@ class energy_computation:
                         for line in f1.readlines():
                             if "TOTAL ENERGY" in line:
                                 energy.append( line.split() )
-                            if "total energy " in line:
+                            if "* total energy " in line:
                                 energy1.append( line.split() )
                 except: # If the job cannot be performed.
                     energy = None  # In case the structure is really bad and you cannot compute its energy. We still want to continue the code.
@@ -559,7 +559,7 @@ class energy_computation:
                     for line in result.stdout.split('\n'):
                         if "TOTAL ENERGY" in line:
                             energy.append( line.split() ) 
-                        if "total energy " in line:
+                        if "* total energy " in line:
                             energy1.append( line.split() )
                 except:
                     energy = None
@@ -571,7 +571,7 @@ class energy_computation:
                 if len(energy)>0:
                     energy = float(energy[-1][3]) # last energy. Value is the 4th item
                 elif len(energy1)>0:
-                    energy = float(energy1[-1][3]) 
+                    energy = float(energy1[-1][4]) 
                 else:
                     energy = 1e12 # Optimization done but no energy written. This should not happen.
             else:
