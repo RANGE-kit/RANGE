@@ -181,7 +181,7 @@ class GA_ABC():
         return child
         
     def _mutate(self, child):
-        mutate_sigma =self.mutate_sigma*(1 + 5*self.best_trial/self.global_structure_index)
+        mutate_sigma =self.mutate_sigma*(1 + 4*self.best_trial/self.global_structure_index)
         if np.random.rand() < self.mutate_rate:
             noise = np.random.randn(self.bounds_dimension) * mutate_sigma * (self.bounds[:,1]-self.bounds[:,0])
             if self.if_clip_candidate:
@@ -202,12 +202,15 @@ class GA_ABC():
             p1, p2 = self.x[p1], self.best_x[:]
         # From two parents to a child
         child  = self._uniform_crossover(p1, p2)
-        #child  = self._mutate(child)
+        child  = self._mutate(child)
         return child, compute_id
         
     def _ga_step(self, iteration_idx, ga_type):
         sorted_y_index = np.argsort(self.y)
-        worse_idx = abs(int(self.colony_size/2) - int(self.ga_parents/2)) # Find the candidates to compete
+        # Find the candidates to compete
+        #worse_idx = abs(int(self.colony_size/2) - int(self.ga_parents/2)) 
+        worse_idx = self.colony_size-1
+        
         #elite_idx = sorted_y_index[:int(self.colony_size/2)]  # select elite parents from the best candidates        
         offspring, offspring_compute_id, y_off = [], [], []
         num_of_GA = max( 1, int(self.get_best_ratio()*self.ga_parents) )
@@ -218,7 +221,7 @@ class GA_ABC():
             new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory ) 
             save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database ) 
             #self.update_bee_location(new_x, new_y, new_id ) 
-            self._greedy_update_GA(sorted_y_index[worse_idx+ii], new_x, new_y)
+            self._greedy_update_GA(sorted_y_index[worse_idx-ii], new_x, new_y)
             
             offspring.append(new_x)
             y_off.append(new_y)
@@ -359,6 +362,10 @@ class GA_ABC():
                 new_xs, new_ys, new_ids = self._ga_step( it, 1 )
                 if if_return_results:
                     self.add_to_pool(new_xs, new_ys, new_ids)
+                
+                new_xs, new_ys, new_ids = self._ga_step( it, -1 )
+                if if_return_results:
+                    self.add_to_pool(new_xs, new_ys, new_ids)
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:
@@ -384,7 +391,13 @@ class GA_ABC():
                     self.update_bee_location(new_x, new_y, new_id )
                     if if_return_results:
                         self.add_to_pool([new_x], [new_y], new_id) 
-                
+                        
+                # GA step
+                if it % self.ga_interval == 0:
+                    new_xs, new_ys, new_ids = self._ga_step( it, 1 )
+                    if if_return_results:
+                        self.add_to_pool(new_xs, new_ys, new_ids)
+                        
                 # Dynamic onlooker phase with GA. 
                 # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002 
                 num_of_OL = int( np.amax( (1, (1-self.get_best_ratio())*self.colony_size/2 ) ) )
@@ -404,7 +417,7 @@ class GA_ABC():
                             
                 # GA step
                 if it % self.ga_interval == 0:
-                    new_xs, new_ys, new_ids = self._ga_step( it, 1 )
+                    new_xs, new_ys, new_ids = self._ga_step( it, -1 )
                     if if_return_results:
                         self.add_to_pool(new_xs, new_ys, new_ids)
 
@@ -416,7 +429,7 @@ class GA_ABC():
                         self.global_structure_index += 1
                         new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_sc_{i}'
                         # Instead of random, we go to the oppo direction of GA crossover
-                        new_x = lo + hi - self._uniform_crossover(self.best_x[:], self.x[i])
+                        new_x = (self.rng.random()*0.5+0.5)*(lo+hi - self._uniform_crossover(self.best_x[:], self.x[i]) )
                         diff = compute_differences( self.x, new_x )
                         if np.all(diff>1E-2): # All different from current X
                             new_id += '_from_GM'
