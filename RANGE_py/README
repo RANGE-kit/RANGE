@@ -1,4 +1,6 @@
-utility.py contains helper functions
+utility.py contains helper functions. 
+
+input_output.py contains the relative functions for input and output.
 
 cluster_model.py contains the generation of cluster structures, boundary conditions, etc... Basically things related to the structures.
 

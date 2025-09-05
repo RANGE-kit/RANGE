@@ -165,6 +165,32 @@ def save_energy_summary(output_file='energy_summary.log',
 
 def print_code_info(print_location):
     if print_location=='Header':
-        print('RANGE search starts')
+        starting_string = r"""
+        
+     /\       _     _
+    /  \     / \   / \       _ 
+   /    \   /   \_/   \     / \   _
+  /      \_/           \   /   \_/ \
+ /                      \_/         \
+/                                    \
+████     ▄█▄    █   █   ███    ████   \
+█   █    █ █    ██  █  █      █        \
+█▄▄██   ██▄██   █ █ █  █  ██  ████      \
+█  █    █   █   █  ██  █   █  █          \
+█   █  █     █  █   █   ████   ████       \
+                                           \___
+----------------------------------------------->>
+                                           
+RANGE: a Robust Adaptive Nature-inspired Global Explorer of potential energy surfaces
+
+Please cite: TBD
+
+For any questions, please contact:
+    Difan Zhang, Oak Ridge National Laboratory, USA, zhangd2@ornl.gov
+    Vassiliki-Alexandra Glezakou, Oak Ridge National Laboratory, USA, gleazakouva@ornl.gov
+
+RANGE search starts...
+        """
+        print(starting_string)
     else:
         print(str(print_location))

@@ -2,14 +2,13 @@
 
 RANGE: a Robust Adaptive Nature-inspired Global Explorer of potential energy surfaces
 
-A python code using hybrid ABC GA algorithm to explore potential energy surfaces and search structures for chemistry and materials science
+A python code using hybrid ABC+GA algorithm to explore potential energy surfaces and search low-energy structures for chemistry and materials science. It can use a third-party computational software as the energy evaluator.
+
+Publication: TBD
 
 ## Installation
 
-The code requires the following common dependencies:
-* `numpy`
-* `scipy`
-* `ase` if ASE interface is used
+The Atomic Simulation Environment (ASE) package is required to use the ASE calculator.
 
 To install with `pip`: 
 ```bash
@@ -18,4 +17,4 @@ pip install .
 
 ## Acknowledgment
 
-ORNL
+This work is supported by the U.S. Department of Energy, Office of Basic Energy Sciences, Catalysis Science Program.

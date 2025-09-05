@@ -96,7 +96,7 @@ opt = GA_ABC(target_function, bounds,
              output_database = None,
              apply_algorithm = 'ABC_GA', # 'GA_native','ABC_native','ABC_random','ABC_GA'
              )
-all_vec, all_V, all_name = opt.run(print_interval=None, if_return_results=True)
+all_vec, all_V, all_name = opt.run(print_interval=1, if_return_results=True)
 
 # Plot explored points
 for x in all_vec:
