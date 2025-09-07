@@ -85,8 +85,10 @@ class cluster_model:
                 elif len( self.constraint_value[n] )==3:  # only fix the position
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), [0,0,0] )
                     bound = [(0,0)]*3 + [(0,360)]*3
+                elif len( self.constraint_value[n] )==0:  # As-is
+                    bound = [(0,0)]*6
                 else:
-                    raise ValueError('Number of parameters should be 6 or 3')
+                    raise ValueError('Number of parameters should be 6 or 3 or 0')
 
             elif self.constraint_type[n] == 'in_box':
                 """
