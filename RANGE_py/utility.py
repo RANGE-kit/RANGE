@@ -129,6 +129,8 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
         else:
             selected_indices += [idx[0]]
         bin_idx += 1
+        if bin_idx==len(keys): # All keys used before having enough candidates
+            selected_indices += [len(X_sorted)-i-1 for i in range(num_of_candidates-len(selected_indices))]
     selected_indices = selected_indices[:num_of_candidates]  # To avoid over-adding
     return sorted_idx[selected_indices]
 
