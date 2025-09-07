@@ -33,7 +33,7 @@ input_molecules = [substrate,adsorb1,adsorb2,adsorb3]
 input_num_of_molecules = [1,1,1,2]
 
 input_constraint_type = ['at_position', 'in_box', 'in_box', 'in_box']
-input_constraint_value = [(), (5.5, 1, 6,  8.5, 11, 10), (5.5, 1, 6,  8.5, 11, 10) ,(5.5, 1, 6,  8.5, 11, 10) ]
+input_constraint_value = [(), (13.5, 2, 5,  16.5, 8, 8), (13.5, 2, 5,  16.5, 8, 8), (13.5, 2, 5,  16.5, 8, 8) ]
 
 
 print( "Step 1: Setting cluster" )
