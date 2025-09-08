@@ -113,10 +113,12 @@ class RigidLJQ_calculator(Calculator):
             """
             
             # Reconstruct rigid-body forces
-            for i, atom_idx in enumerate(mol):
-                f_trans = total_force/len(mol)
-                #f_rot = np.cross(omega, r_rel[i])
-                new_forces[atom_idx] = f_trans #+ f_rot
+            f_trans = total_force/len(mol)
+            new_forces[mol] = f_trans
+            #for i, atom_idx in enumerate(mol):
+            #    f_trans = total_force/len(mol)
+            #    #f_rot = np.cross(omega, r_rel[i])
+            #    new_forces[atom_idx] = f_trans #+ f_rot
         return new_forces        
     
     def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
@@ -481,7 +483,7 @@ class energy_computation:
                 try:
                     energy = atoms.get_potential_energy()
                 except:
-                    energy = 1e8 # Cannot compute energy
+                    energy = 1e8 # Cannot compute energy.
 
         elif self.calculator_type == 'external': # To use external command
             atoms, energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
@@ -493,15 +495,15 @@ class energy_computation:
         else:
             raise ValueError('calculator_type is not supported')
 
+        if self.if_check_structure_sanity:
+            energy = check_structure_sanity(atoms, energy)
+            
         # Vec, structure and energy are all finalized now. They will be saved in db file.
         if self.save_output_level == 'Full':
             np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')  
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
             np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
             
-        if self.if_check_structure_sanity:
-            energy = check_structure_sanity(atoms, energy)
-        
         current_time = np.round(time.time() - start_time , 3)
         print( 'Time cost (s) for ',computing_id.ljust(50), str(current_time).rjust(10), ' with energy: ', np.round(energy,8) )  
         
@@ -581,7 +583,7 @@ class energy_computation:
                 else:
                     energy = 1e12 # Optimization done but no energy written. This should not happen.
             else:
-                energy = 1e8
+                energy = 1e7
             
             # Get the final structure
             if os.path.exists( 'xtbopt.xyz' ):
@@ -620,7 +622,7 @@ class energy_computation:
                     
                 except subprocess.CalledProcessError as e:
                     print( job_directory , e.stderr)
-                    energy = 1e8
+                    energy = 1e7
                     atoms = read(start_xyz)
 
             else:
@@ -652,7 +654,7 @@ class energy_computation:
                     energy = None
                 except:
                     print( f' Gaussian failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
-                    energy = 1e8
+                    energy = 1e7
                     atoms = read(start_xyz)
                 
                 if energy is None: # calculation done successfully
@@ -696,7 +698,7 @@ class energy_computation:
                     atoms = read( 'input-ORCA.xyz' )
                 except subprocess.CalledProcessError as e:
                     print( 'ORCA Error: ', job_directory , e.stderr)
-                    energy = 1e8
+                    energy = 1e7
                     atoms = read(start_xyz)
             else:
                 raise NameError('ORCA input is not provided by input key')
