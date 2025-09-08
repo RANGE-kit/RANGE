@@ -118,6 +118,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
                                  if_coarse_calc = True,             # Do we want to pre-optimize using coarse optimizer before the fine optimizer
                                  coarse_calc_para = coarse_opt_parameter,   # The coarse optimizer setting
                                  save_output_level = 'Full',        # How many output files to save? 'Full' means everything. 'Simple' means less output files are saved.
+                                 if_check_structure_sanity = False, # If check structure for unreasonable bonds after optimization
                                  )
 """
 # We can also use an external software. For example:

@@ -20,6 +20,7 @@ from itertools import combinations
 import time
 
 from RANGE_py.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
+from RANGE_py.utility import check_structure_sanity
 from RANGE_py.input_output import get_CP2K_run_info
 
 
@@ -183,6 +184,7 @@ class energy_computation:
                  calculator, calculator_type, geo_opt_para, 
                  if_coarse_calc=False, coarse_calc_para=None,
                  save_output_level = 'Full',
+                 if_check_structure_sanity = False,
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -194,6 +196,7 @@ class energy_computation:
         self.calculator_type = calculator_type
         self.geo_opt_para = geo_opt_para
         self.save_output_level = save_output_level
+        self.if_check_structure_sanity = if_check_structure_sanity
         
         self.if_coarse_calc = if_coarse_calc
         if if_coarse_calc:
@@ -495,6 +498,9 @@ class energy_computation:
             np.savetxt(os.path.join(new_cumpute_directory, 'vec.txt'), vec, delimiter=',')  
             write( os.path.join(new_cumpute_directory, 'final.xyz'), atoms )
             np.savetxt(os.path.join(new_cumpute_directory, 'energy.txt'), [energy], delimiter=',')
+            
+        if self.if_check_structure_sanity:
+            energy = check_structure_sanity(atoms, energy)
         
         current_time = np.round(time.time() - start_time , 3)
         print( 'Time cost (s) for ',computing_id.ljust(50), str(current_time).rjust(10), ' with energy: ', np.round(energy,8) )  

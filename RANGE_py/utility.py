@@ -134,6 +134,13 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     selected_indices = selected_indices[:num_of_candidates]  # To avoid over-adding
     return sorted_idx[selected_indices]
 
+def check_structure_sanity(atoms, energy):
+    dist = atoms.get_all_distances(mic=True, vector=False)
+    dist = dist[np.triu_indices(dist.shape[0], k=1)] # only upper triangle without diagonal values
+    if np.amin(dist)<0.7: # good
+        energy = 1E7
+    return energy
+    
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040
 # Output is Eps (in eV) and Sig (in Ang)
