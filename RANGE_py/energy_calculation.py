@@ -305,29 +305,34 @@ class energy_computation:
                 m.rotate( t[4], face[3], center=adsorb_location )
                 #m.rotate( t[5], 'x', center=adsorb_location )
                 
-            elif self.go_conversion_rule[i][0] in ['in_pore','micelle','layer']: 
+            elif self.go_conversion_rule[i][0] == 'in_pore':
                 t, euler = vec[6*i : 6*i+3], vec[6*i+3 : 6*i+6] 
                 m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
-                grid_point_location = self.go_conversion_rule[i][1][ t[0] ] # grid point coord
+                grid_point_location = self.go_conversion_rule[i][1][ round(t[0]) ] # grid point coord
                 m.translate( grid_point_location - center_of_geometry )
+                
+            elif self.go_conversion_rule[i][0] == 'layer': 
+                t, euler = vec[6*i : 6*i+3], vec[6*i+3 : 6*i+6] 
+                #m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
+                grid_point_location = self.go_conversion_rule[i][2][ round(t[0]) ] # grid point coord
+                m.translate( grid_point_location - m.positions[self.go_conversion_rule[i][1]] )
+            
+            elif self.go_conversion_rule[i][0] == 'micelle': 
+                t, euler = vec[6*i : 6*i+3], vec[6*i+3 : 6*i+6] 
+                #m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
+                grid_point_location = self.go_conversion_rule[i][3][ round(t[0]) ] # grid point coord
+                grid_point_direction = self.go_conversion_rule[i][4][ round(t[0]) ] # grid point surf norm
+                m.translate( grid_point_location - m.positions[self.go_conversion_rule[i][1]] ) 
+                m.rotate( m.positions[self.go_conversion_rule[i][2]]-m.positions[self.go_conversion_rule[i][1]], grid_point_direction, center=grid_point_location )
                 
             # replace: The replacement function to replace atoms. If the atom symbol is X, it means a vaccancy.
             elif self.go_conversion_rule[i][0]=='replace': 
-                t = vec[6*i : 6*i+6]
-                substrate_mol = placed.copy() #[ self.go_conversion_rule[i][0] ] # ase obj: mol to be changed
+                t = vec[6*i : 6*i+3] 
+                euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
+                m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 substrate_atom_id = self.go_conversion_rule[i][1][ round(t[0]) ] # int: atom id to be changed
-                symbol_new_atom = m.get_chemical_symbols()[0]
-                if substrate_mol.symbols[ substrate_atom_id ] != symbol_new_atom:
-                    substrate_mol.symbols[ substrate_atom_id ] = 'X'
-                    m.positions[0] = substrate_mol.get_positions()[ substrate_atom_id ]
-                else:  # duplicated site, then pick a new site
-                    idx_avail = [k for k in self.go_conversion_rule[i][1] if substrate_mol.symbols[k]!=symbol_new_atom ]
-                    idx_avail = np.random.choice(idx_avail)
-                    substrate_mol.symbols[ idx_avail ] = 'X'
-                    m.positions[0] = substrate_mol.get_positions()[ idx_avail ]                    
-                #placed[ self.go_conversion_rule[i][0] ] = substrate_mol
-                placed = substrate_mol.copy()
-                #m = Atoms()
+                m.translate( placed.positions[substrate_atom_id] - center_of_geometry )
+                placed.symbols[substrate_atom_id] = 'X'
              
             else:
                 raise ValueError(f'go_conversion_rule has a wrong keyword: {self.go_conversion_rule[i][0]}')
@@ -343,13 +348,12 @@ class energy_computation:
         cluster.new_array('residuenumbers', resid_of_placed, str)
         
         # To support vaccancy function
-        del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
+        #del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
         
         # Add PBC if needed
         if Cell is not None:
             cluster.set_pbc( (True,True,True) )
             cluster.set_cell( Cell )
-            
         return cluster
 
 
@@ -371,17 +375,29 @@ class energy_computation:
             # Now convert x,y,z, phi, theta, psi to proper format
             if self.go_conversion_rule[i][0] in ['at_position','in_box','in_box_out']:  # position, inbox, outside inbox
                 vec_new += [x,y,z, phi, theta, psi] 
+                
             elif self.go_conversion_rule[i][0]=='in_sphere_shell':  # Spherical coord
                 r_trans, theta_trans, phi_trans = cartesian_to_ellipsoidal_deg(x,y,z,
                                                                                self.go_conversion_rule[i][1],
                                                                                self.go_conversion_rule[i][2],
                                                                                self.go_conversion_rule[i][3])
                 vec_new += [r_trans, theta_trans, phi_trans, phi, theta, psi]
-            elif self.go_conversion_rule[i][0] in ['in_pore','micelle','layer']:  # grid points in pore/micelle/layer
-                cog = np.mean(pos_new,axis=0)   
+                
+            elif self.go_conversion_rule[i][0] == 'in_pore':  # grid points in pore 
                 tree = cKDTree(self.go_conversion_rule[i][1])
-                distance, grid_index = tree.query(cog, k=1)
+                distance, grid_index = tree.query( np.mean(pos_new,axis=0) , k=1 )
                 vec_new += [ grid_index,0,0, phi, theta, psi ]
+            
+            elif self.go_conversion_rule[i][0] == 'layer':  # grid points in layer 
+                tree = cKDTree(self.go_conversion_rule[i][2])
+                distance, grid_index = tree.query( pos_new[self.go_conversion_rule[i][1]] , k=1)
+                vec_new += [ grid_index,0,0, phi, theta, psi ]
+            
+            elif self.go_conversion_rule[i][0] == 'micelle':  # grid points in micelle
+                tree = cKDTree(self.go_conversion_rule[i][3])
+                distance, grid_index = tree.query( pos_new[self.go_conversion_rule[i][1]] , k=1)
+                vec_new += [ grid_index,0,0, phi, theta, psi ]
+                
             elif self.go_conversion_rule[i][0]=='on_surface': # on surface
                 mol_vec = vec[6*i : 6*i+6]
                 surf_idx = int(mol_vec[0]) # remain the same surface index. Output's 1st value.
@@ -463,7 +479,6 @@ class energy_computation:
                 pass
             elif self.calculator_type != 'structural':
                 write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms, format='xyz') 
-                
             vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure   
                           
         # The fine optimization

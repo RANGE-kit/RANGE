@@ -258,7 +258,7 @@ class GA_ABC():
         return  output_line
         
     # The main loop 
-    def run(self, print_interval=None, if_return_results=False):            
+    def run(self, print_interval=None, if_return_results=False):
         start_time = time.time()
 
         self._init_colony(print_interval) 
@@ -269,7 +269,7 @@ class GA_ABC():
         if print_interval is not None: 
             with open("log_of_RANGE.log", 'a') as f1:
                 f1.write( f"Start iteration based on initial pool of {len(self.y)} solutions from {self.previous_pool_size} candidates. Current time cost: {round(current_time,3)}\n" )
-               
+
         # Approach 1: native ABC
         if self.apply_algorithm == 'ABC_native':
             for it in range(1, self.max_iteration+1):
@@ -380,6 +380,7 @@ class GA_ABC():
         # Approach 4: Hybrid ABC + GA 
         elif self.apply_algorithm == 'ABC_GA':
             for it in range(1, self.max_iteration+1):
+                print( 'it: ', it )
                 # Dynamic employed phase with GA. 
                 num_of_EM = int( np.amax( (1, self.get_best_ratio()*self.colony_size/2 ) ) )
                 for i in range(num_of_EM):

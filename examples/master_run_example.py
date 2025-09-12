@@ -82,17 +82,16 @@ in_pore
     Example: ( 0, (1,2,5,8,9), 0.1 )
     
 micelle or layer
-    input parameter: (X Y Z),(X Y Z),(X Y Z),spacing for layer, or A,B,C,(X Y Z),spacing for ellipsoid
-    X,Y,Z,A,B,C,spacing are float
+    input parameter: (X Y Z),(X Y Z),(X Y Z),(X,Y,Z),spacing,n1,n2 for layer, or A,B,C,(X Y Z),spacing,n1,n2 for ellipsoid
+    X,Y,Z,A,B,C,spacing are float. n1, n2 are int
     To add molecules on a planar surface or ellipsoid surface using an uniform grid 
-    Example: ( (0,0,0), (1,1,1), (1,-1,-1), 1.5 ) or (3,4,5, (0,0,0), 1.8)
+    Example: ( (0,0,0), (1,0,0), (0,1,0), (0,0,1), 1.5, 2,4 ) or (3,4,5, (0,0,0), 1.8, 3,5)
 
 replace:
-    input parameter: ID_substrate, tuple/list of integers 
-    To replace certains molecules in the substrate by this atom/molecule.
-    ID_substrate is integer, indicating the molecule ID of substrate to be used. Currently must be 0.
-    tuple/list of integers indicates the index of available atoms in the substrate to be replaced.
-    Example: ( 0, [1,4,7,9,10,16,19] )
+    input parameter: tuple/list of integers 
+    To replace certains molecules in the substrate by this atom/molecule. The substrate is the first molecule. 
+    list of integers indicates the index of available atoms in the substrate to be replaced.
+    Example: [1,4,7,9,10,16,19]
 '''
 input_constraint_type = [ 'in_sphere_shell', 'in_sphere_shell' ]
 input_constraint_value = [ (0,0,0,4,4,4), (0,0,0,5,5,5,0.2) ]

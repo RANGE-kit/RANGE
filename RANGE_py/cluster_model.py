@@ -200,7 +200,7 @@ class cluster_model:
                 conversion_rule_para starts with in_pore
                 """
                 substrate_mol = go_templates[ self.constraint_value[n][0] ] 
-                points = substrate_mol.get_positions()[ self.constraint_value[n][1] ]
+                points = substrate_mol.get_positions()[ np.array(self.constraint_value[n][1]) ]
                 assert len(points)>3, 'Need at least 4 points'
                 hull = ConvexHull( points )
                 deln = Delaunay(points[hull.vertices])
@@ -224,48 +224,85 @@ class cluster_model:
                 conversion_rule_para = ( 'in_pore', tuple(filtered_grid) )
                 bound = [ (-0.499, len(filtered_grid)-1+0.499), (0,0), (0,0) ] + [(0,360)]*3
                 
-            elif self.constraint_type[n] == 'micelle' or self.constraint_type[n] == 'layer':
+            elif self.constraint_type[n] == 'layer': 
                 """
-                Define grid points uniformly on a plane or ellipsoid surface
+                Define grid points uniformly on a plane surface
                 Input parameter is:
-                    array (Dim=3) * 3, float for layer
-                    float * 3, array (Dim=3), float for ellipsoid
+                    array (Dim=3) *4, float, int, int for layer
+                    three points defining the surface and a forth point defining surface norm direction
+                    float gives the grid spacing. First int gives the atom id on the surface, second int gives the atom id for direction.
                 Output is:
-                    grid points
-                conversion_rule_para starts with micelle or layer
+                    atom id on the surface, grid points
+                conversion_rule_para starts with layer
                 """
-                if self.constraint_type[n] == 'layer' and len( self.constraint_value[n] ) == 4: # (P1,P2,P3,spacing) for plane (layer)
-                    u = self.constraint_value[n][1] - self.constraint_value[n][0]
-                    v = self.constraint_value[n][2] - self.constraint_value[n][0]
-                    n_u = max(int(np.linalg.norm(u) / self.constraint_value[n][3] ) + 1, 2)
-                    n_v = max(int(np.linalg.norm(v) / self.constraint_value[n][3] ) + 1, 2)
+                if len( self.constraint_value[n] ) == 7: # (P1,P2,P3,P4, spacing, idx1, idx2) for plane (layer)
+                    u = np.array(self.constraint_value[n][1]) - np.array(self.constraint_value[n][0])
+                    v = np.array(self.constraint_value[n][2]) - np.array(self.constraint_value[n][0])
+                    w = np.array(self.constraint_value[n][3]) - np.array(self.constraint_value[n][0])
+                    surf_norm = np.cross(u, v)
+                    if np.dot( surf_norm, w ) <0:
+                        surf_norm = -surf_norm/np.linalg.norm(surf_norm)
+                    else:
+                        surf_norm = surf_norm/np.linalg.norm(surf_norm)
+                    n_u = max(int(np.linalg.norm(u) / self.constraint_value[n][4] ) + 1, 2)
+                    n_v = max(int(np.linalg.norm(v) / self.constraint_value[n][4] ) + 1, 2)
                     s = np.linspace(0, 1, n_u)
                     t = np.linspace(0, 1, n_v)
                     S, T = np.meshgrid(s, t)
                     grid_points = self.constraint_value[n][0] + (S.ravel()[:, None] * u) + (T.ravel()[:, None] * v)
-                    conversion_rule_para = ( 'layer', tuple(grid_points) )
-                elif self.constraint_type[n] == 'micelle' and len( self.constraint_value[n] ) == 5: # (a,b,c,center, spacing) for ellipsoid (micelle)
+                    # Align molecule to surf norm
+                    p = new_mol.get_positions()
+                    new_mol.translate( np.array(self.constraint_value[n][0]) - p[self.constraint_value[n][5]] )
+                    new_mol.rotate(p[self.constraint_value[n][6]] - p[self.constraint_value[n][5]] , surf_norm, center=np.array(self.constraint_value[n][0]))
+                    
+                    conversion_rule_para = ( 'layer', self.constraint_value[n][5], tuple(grid_points) )
+                else:
+                    raise ValueError('Wrong number of input constraint and parameter')
+                # Output:
+                bound = [ (-0.499, len(grid_points)-1+0.499), (0,0), (0,0) ] + [(0,0)]*3
+            
+            elif self.constraint_type[n] == 'micelle':
+                """
+                Define grid points uniformly on an ellipsoid surface
+                Input parameter is:
+                    float * 3, array (Dim=3), float, int, int for ellipsoid
+                    first three float give three primary axis.  Array gives the center of micelle. Last float gives grid spacing.
+                    First int gives the atom id on the surface, second int gives the atom id for direction.
+                Output is:
+                    grid points, grid normal
+                conversion_rule_para starts with micelle
+                """
+                if len( self.constraint_value[n] ) == 7: # (a,b,c,center, spacing, idx1, idx2) for ellipsoid (micelle)
                     a,b,c = self.constraint_value[n][0],self.constraint_value[n][1],self.constraint_value[n][2]
                     center, spacing = self.constraint_value[n][3],self.constraint_value[n][4]
+                    atom_surf, atom_dir = self.constraint_value[n][5],self.constraint_value[n][6]
                     # Estimate number of divisions in theta and phi
                     n_theta = max(int(np.pi * b / spacing), 2)   # latitude divisions
                     n_phi = max(int(2 * np.pi * a / spacing), 2) # longitude divisions
-                    theta_vals = np.linspace(0, np.pi, n_theta)
+                    theta_vals = np.arccos(np.linspace(1, -1, n_theta))  # from 0 to pi. Sample cos(theta) for better uniformity
                     phi_vals = np.linspace(0, 2*np.pi, n_phi)
+                    theta, phi = np.meshgrid(theta_vals, phi_vals, indexing='ij')  # Create meshgrid
+                    # Parametric equations
+                    x = center[0] + a * np.sin(theta) * np.cos(phi)
+                    y = center[1] + b * np.cos(theta)
+                    z = center[2] + c * np.sin(theta) * np.sin(phi)
+                    # Compute normals via gradient of implicit function
+                    nx = (x - center[0]) / (a * a)
+                    ny = (y - center[1]) / (b * b)
+                    nz = (z - center[2]) / (c * c)
+                    # Normalize normals
+                    norm = np.sqrt(nx**2 + ny**2 + nz**2)
+                    nx, ny, nz = nx/norm, ny/norm, nz/norm
+                    # Stack points and normals
+                    grid_points = np.stack([x.ravel(), y.ravel(), z.ravel()], axis=-1)
+                    grid_normals = np.column_stack([nx.ravel(), ny.ravel(), nz.ravel()])
                     
-                    grid_points = []
-                    for theta in theta_vals:
-                        for phi in phi_vals:
-                            x = center[0] + a * np.sin(theta) * np.cos(phi)
-                            y = center[1] + b * np.cos(theta)
-                            z = center[2] + c * np.sin(theta) * np.sin(phi)
-                            grid_points.append([x, y, z])
-                    conversion_rule_para = ( 'micelle', tuple(grid_points) )
+                    conversion_rule_para = ( 'micelle', atom_surf, atom_dir, tuple(grid_points), tuple(grid_normals) )
+                    new_mol.translate( center - new_mol.positions[self.constraint_value[n][5]] )
                 else:
                     raise ValueError('Wrong number of input constraint and parameter')
-
                 # Output:
-                bound = [ (-0.499, len(grid_points)-1+0.499), (0,0), (0,0) ] + [(0,360)]*3
+                bound = [ (-0.499, len(grid_points)-1+0.499), (0,0), (0,0) ] + [(0,0)]*3
                 
             elif self.constraint_type[n] == 'replace':
                 """
@@ -273,15 +310,13 @@ class cluster_model:
                 Input parameter is: 
                     tuple of int (replacement list): the atom index to be replaced in the substrate
                 Output parameter (so far):
-                    the index of items in the replacement list + not used*5 (to keep length as 6)
-                
+                    the index of items in the replacement list + 5 tuples
                 conversion_rule_para starts with replace
                 """
                 #conversion_rule_para = ( self.constraint_value[n][0], tuple(self.constraint_value[n][1]) ) # The mol idx, and atom idx
                 conversion_rule_para = ( 'replace', tuple(self.constraint_value[n]) ) # atom idx. The mol idx will always be 0 (the first mol)
                 num_of_site = len(self.constraint_value[n])
-
-                bound = [(-0.499, num_of_site-1+0.499) , (0,0), (0,0) ] + [(0,0)]*3
+                bound = [(-0.499, num_of_site-1+0.499) , (0,0), (0,0) ] + [(0,360)]*3
                 
             else:
                 raise ValueError('Constraint type is not supported')
