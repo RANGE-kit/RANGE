@@ -7,6 +7,7 @@ Created on Wed Jun  4 08:56:35 2025
 
 import numpy as np
 import os
+from scipy.spatial import cKDTree
 
 from ase import Atoms
 from ase.optimize import BFGS
@@ -31,7 +32,7 @@ that uses LJ to compute external DOF and freeze internal DOF
 class RigidLJQ_calculator(Calculator):
     implemented_properties = ['energy', 'forces']
 
-    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=1.0, 
+    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=2.0, 
                  coulomb_const=14.3996, # eV·Å/e² (vacuum permittivity included)
                  **kwargs):
         """
@@ -183,10 +184,10 @@ class energy_computation:
     It needs the template of the cluster (generated from generate_bounds), just to know what we are modeling.
     """
     def __init__(self, templates, go_conversion_rule, 
-                 calculator, calculator_type, geo_opt_para, 
+                 calculator=None, calculator_type='structural', geo_opt_para=None, 
                  if_coarse_calc=False, coarse_calc_para=None,
-                 save_output_level = 'Full',
-                 if_check_structure_sanity = False,
+                 save_output_level = 'Simple',
+                 if_check_structure_sanity = True,
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -201,18 +202,22 @@ class energy_computation:
         self.if_check_structure_sanity = if_check_structure_sanity
         
         self.if_coarse_calc = if_coarse_calc
-        if if_coarse_calc:
-            try: 
+        if self.if_coarse_calc:
+            try:  # Make these settings explicit so that everything is clear
                 self.coarse_calc_eps = coarse_calc_para['coarse_calc_eps']
                 self.coarse_calc_sig = coarse_calc_para['coarse_calc_sig']
                 self.coarse_calc_chg = coarse_calc_para['coarse_calc_chg']
                 self.coarse_calc_step = coarse_calc_para['coarse_calc_step']
                 self.coarse_calc_fmax = coarse_calc_para['coarse_calc_fmax']
                 self.coarse_calc_constraint = coarse_calc_para['coarse_calc_constraint']
+                #self.coarse_calc_cutoff = coarse_calc_para['coarse_calc_cutoff']
             except:
                 raise ValueError('Coarse optimization parameter is missing or incorrect')
-            self.coarse_calculator = RigidLJQ_calculator(self.templates, charge=self.coarse_calc_chg, 
-                                                         epsilon=self.coarse_calc_eps, sigma=self.coarse_calc_sig,
+            self.coarse_calculator = RigidLJQ_calculator(self.templates, 
+                                                         charge = self.coarse_calc_chg, 
+                                                         epsilon= self.coarse_calc_eps, 
+                                                         sigma  = self.coarse_calc_sig,
+                                                         #cutoff = self.coarse_calc_cutoff,
                                                          )
 
     # Convert a vec X to 3D structure using template 
@@ -234,38 +239,21 @@ class energy_computation:
             m = mol.copy()
             center_of_geometry = np.mean(m.get_positions(),axis=0)
 
-            if len(self.go_conversion_rule[i])==0: 
+            # at_position , in_box without outside box option
+            if self.go_conversion_rule[i][0] in ['at_position','in_box']: 
                 t = vec[6*i : 6*i+3]  # Cartesian coord in vec by default
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
                 m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 m.translate( t )
                 
-            # The replacement function to replace atoms. If the atom symbol is X, it means a vaccancy.
-            elif len(self.go_conversion_rule[i])==1: 
-                t = vec[6*i : 6*i+6]
-                substrate_mol = placed.copy() #[ self.go_conversion_rule[i][0] ] # ase obj: mol to be changed
-                substrate_atom_id = self.go_conversion_rule[i][0][ round(t[0]) ] # int: atom id to be changed
-                symbol_new_atom = m.get_chemical_symbols()[0]
-                if substrate_mol.symbols[ substrate_atom_id ] != symbol_new_atom:
-                    substrate_mol.symbols[ substrate_atom_id ] = 'X'
-                    m.positions[0] = substrate_mol.get_positions()[ substrate_atom_id ]
-                else:  # duplicated site, then pick a new site
-                    idx_avail = [k for k in self.go_conversion_rule[i][1] if substrate_mol.symbols[k]!=symbol_new_atom ]
-                    idx_avail = np.random.choice(idx_avail)
-                    substrate_mol.symbols[ idx_avail ] = 'X'
-                    m.positions[0] = substrate_mol.get_positions()[ idx_avail ]                    
-                #placed[ self.go_conversion_rule[i][0] ] = substrate_mol
-                placed = substrate_mol.copy()
-                #m = Atoms()
-                
-            # inside box with outside limit: where the two parameter inside tells the lo and hi of inner box
-            elif len(self.go_conversion_rule[i])==2:     
+            # in_box + outside box option: inside box with outside limit: where the two parameter inside tells the lo and hi of inner box
+            elif self.go_conversion_rule[i][0]=='in_box_out':     
                 t = vec[6*i : 6*i+3]  # Cartesian coord in vec by default
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
                 m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 # Now we need to adjust the translation vector t
-                xlo, ylo, zlo = self.go_conversion_rule[i][0]
-                xhi, yhi, zhi = self.go_conversion_rule[i][1]
+                xlo, ylo, zlo = self.go_conversion_rule[i][1]
+                xhi, yhi, zhi = self.go_conversion_rule[i][2]
                 if_inside_inner = (xlo <= t[0] <= xhi) and (ylo <= t[1] <= yhi) and (zlo <= t[2] <= zhi)
                 if if_inside_inner:
                     distances = {'xlo': abs(t[0] - xlo), 'xhi': abs(t[0] - xhi),  
@@ -287,36 +275,62 @@ class energy_computation:
                         t[2] = zhi + 1e-3
                 m.translate( t )
                 
-            # Check if we have sphere coord in vec. If so, we have 3 semi-axis values here and need to convert t (r, theta, phi) to cart coord
-            elif len(self.go_conversion_rule[i])==3: 
+            # in_sphere_shell: Check if we have sphere coord in vec. If so, we have 3 semi-axis values here and need to convert t (r, theta, phi) to cart coord
+            elif self.go_conversion_rule[i][0]=='in_sphere_shell': 
                 t = vec[6*i : 6*i+3] 
                 x,y,z = ellipsoidal_to_cartesian_deg(t[0], t[1], t[2], 
-                                             self.go_conversion_rule[i][0], 
                                              self.go_conversion_rule[i][1], 
-                                             self.go_conversion_rule[i][2])
+                                             self.go_conversion_rule[i][2], 
+                                             self.go_conversion_rule[i][3])
                 t = np.array([x,y,z])
                 euler = vec[6*i+3 : 6*i+6]  # Second 3 values are rotation Euler angles
                 m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
                 m.translate( t )
                 
+            # on_surface:    
             # Check if we have the face information from on_surface. If so, we have 3 surface info: face ID, factor 1 and 2 to look for points in plane
             # We also have the 3 or 2 rotation info to determine the orientation of molecule adsorbed on surface.
-            elif len(self.go_conversion_rule[i])>4:
+            elif self.go_conversion_rule[i][0]=='on_surface': 
                 t = vec[6*i : 6*i+6] 
-                face = self.go_conversion_rule[i][ 2+round(t[0]) ] # get the specific face info: 3 points + 1 surface adsorption normal point
+                face = self.go_conversion_rule[i][ 3+round(t[0]) ] # get the specific face info: 3 points + 1 surface adsorption normal point
                 adsorb_surf_vector = (face[1] - face[0])*t[1] +face[0]
                 adsorb_surf_vector += (face[2] - adsorb_surf_vector)*t[2]  
                 adsorb_location = adsorb_surf_vector + face[3]*t[3]
                 
-                template_adsorb_atom_location = m.positions[self.go_conversion_rule[i][0]] # 0 = adsorbate_at_position
-                template_adsorb_direction = m.positions[self.go_conversion_rule[i][1]] - template_adsorb_atom_location # 1 = direction atom
+                template_adsorb_atom_location = m.positions[self.go_conversion_rule[i][1]] # 1= adsorbate_at_position
+                template_adsorb_direction = m.positions[self.go_conversion_rule[i][2]] - template_adsorb_atom_location # 2= direction atom
                 
                 m.translate( adsorb_location - template_adsorb_atom_location )  
                 m.rotate( template_adsorb_direction, face[3], center=adsorb_location)  # adsorbate_in_direction --> surf_norm 
                 m.rotate( t[4], face[3], center=adsorb_location )
                 #m.rotate( t[5], 'x', center=adsorb_location )
+                
+            elif self.go_conversion_rule[i][0] in ['in_pore','micelle','layer']: 
+                t, euler = vec[6*i : 6*i+3], vec[6*i+3 : 6*i+6] 
+                m = rotate_atoms_by_euler(m, center_of_geometry, euler[0], euler[1], euler[2] )
+                grid_point_location = self.go_conversion_rule[i][1][ t[0] ] # grid point coord
+                m.translate( grid_point_location - center_of_geometry )
+                
+            # replace: The replacement function to replace atoms. If the atom symbol is X, it means a vaccancy.
+            elif self.go_conversion_rule[i][0]=='replace': 
+                t = vec[6*i : 6*i+6]
+                substrate_mol = placed.copy() #[ self.go_conversion_rule[i][0] ] # ase obj: mol to be changed
+                substrate_atom_id = self.go_conversion_rule[i][1][ round(t[0]) ] # int: atom id to be changed
+                symbol_new_atom = m.get_chemical_symbols()[0]
+                if substrate_mol.symbols[ substrate_atom_id ] != symbol_new_atom:
+                    substrate_mol.symbols[ substrate_atom_id ] = 'X'
+                    m.positions[0] = substrate_mol.get_positions()[ substrate_atom_id ]
+                else:  # duplicated site, then pick a new site
+                    idx_avail = [k for k in self.go_conversion_rule[i][1] if substrate_mol.symbols[k]!=symbol_new_atom ]
+                    idx_avail = np.random.choice(idx_avail)
+                    substrate_mol.symbols[ idx_avail ] = 'X'
+                    m.positions[0] = substrate_mol.get_positions()[ idx_avail ]                    
+                #placed[ self.go_conversion_rule[i][0] ] = substrate_mol
+                placed = substrate_mol.copy()
+                #m = Atoms()
+             
             else:
-                raise ValueError(f'go_conversion_rule has a strange length: {len(self.go_conversion_rule[i])}')
+                raise ValueError(f'go_conversion_rule has a wrong keyword: {self.go_conversion_rule[i][0]}')
 
             # Move and rotate the molecule to final destination
             # Or new_mol_xyz = mol.get_positions().dot(rot.T) + t where Rotation.from_euler('zxz', euler).as_matrix()
@@ -355,26 +369,26 @@ class energy_computation:
             x, y, z, phi, theta, psi = get_translation_and_euler_from_positions(pos_old, pos_new)
             
             # Now convert x,y,z, phi, theta, psi to proper format
-            if len(self.go_conversion_rule[i])==0 or len(self.go_conversion_rule[i])==2: # position, inbox, outside inbox
+            if self.go_conversion_rule[i][0] in ['at_position','in_box','in_box_out']:  # position, inbox, outside inbox
                 vec_new += [x,y,z, phi, theta, psi] 
-                
-            elif len(self.go_conversion_rule[i])==1:  # Replace function needs no revision
-                vec_new += list(vec[6*i : 6*i+3])
-                
-            elif len(self.go_conversion_rule[i])==3: # Spherical coord
+            elif self.go_conversion_rule[i][0]=='in_sphere_shell':  # Spherical coord
                 r_trans, theta_trans, phi_trans = cartesian_to_ellipsoidal_deg(x,y,z,
-                                                                               self.go_conversion_rule[i][0],
                                                                                self.go_conversion_rule[i][1],
-                                                                               self.go_conversion_rule[i][2])
+                                                                               self.go_conversion_rule[i][2],
+                                                                               self.go_conversion_rule[i][3])
                 vec_new += [r_trans, theta_trans, phi_trans, phi, theta, psi]
-                
-            elif len(self.go_conversion_rule[i])>4: # on surface
+            elif self.go_conversion_rule[i][0] in ['in_pore','micelle','layer']:  # grid points in pore/micelle/layer
+                cog = np.mean(pos_new,axis=0)   
+                tree = cKDTree(self.go_conversion_rule[i][1])
+                distance, grid_index = tree.query(cog, k=1)
+                vec_new += [ grid_index,0,0, phi, theta, psi ]
+            elif self.go_conversion_rule[i][0]=='on_surface': # on surface
                 mol_vec = vec[6*i : 6*i+6]
                 surf_idx = int(mol_vec[0]) # remain the same surface index. Output's 1st value.
-                face = self.go_conversion_rule[i][ 2+ surf_idx ]
+                face = self.go_conversion_rule[i][ 3+surf_idx ]
                 # Where adsorbate atoms are now:                
-                adsorb_location_new = pos_new[ self.go_conversion_rule[i][0] ]
-                adsorb_direction_new = pos_new[ self.go_conversion_rule[i][1] ] - adsorb_location_new
+                adsorb_location_new = pos_new[ self.go_conversion_rule[i][1] ]
+                adsorb_direction_new = pos_new[ self.go_conversion_rule[i][2] ] - adsorb_location_new
                 # project adsorb atom on the surface
                 v = adsorb_location_new - face[0] # from p0 to adsorbate
                 distance = np.dot(v, face[3]) # distance from adsorbent to plane along surf norm. Also 4th value of output
@@ -410,8 +424,10 @@ class energy_computation:
                 # Final output
                 vec_new += [surf_idx, x1, x2, distance, angle_deg, 0]
                 
+            elif self.go_conversion_rule[i][0]=='replace':  # Replace function needs no revision
+                vec_new += list(vec[6*i : 6*i+3])
             else:
-                raise ValueError(f'go_conversion_rule has a strange length: {len(self.go_conversion_rule[i])}')
+                raise ValueError(f'go_conversion_rule has a wrong keyword: {self.go_conversion_rule[i][0]}')
 
         return np.array(vec_new)
 
@@ -423,7 +439,7 @@ class energy_computation:
 
         if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
             pass
-        else:
+        elif self.calculator_type != 'structural':
             # Each specific job folder
             new_cumpute_directory = os.path.join(save_output_directory,computing_id)
             os.makedirs( new_cumpute_directory, exist_ok=True)   
@@ -437,7 +453,7 @@ class energy_computation:
                 dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
                 dyn = BFGS(atoms, logfile=dyn_log ) 
             elif self.save_output_level == 'Simple':
-                dyn = BFGS(atoms)
+                dyn = BFGS(atoms, logfile=None)
             else:
                 raise ValueError('Saving output level keyword is not supported')
             if self.coarse_calc_constraint is not None:
@@ -445,7 +461,7 @@ class energy_computation:
             dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
             if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
                 pass
-            else:
+            elif self.calculator_type != 'structural':
                 write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms, format='xyz') 
                 
             vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure   
@@ -460,7 +476,7 @@ class energy_computation:
                     dyn_log = os.path.join(new_cumpute_directory, 'opt.log') 
                     dyn = BFGS(atoms, logfile=dyn_log ) 
                 elif self.save_output_level == 'Simple':
-                    dyn = BFGS(atoms)
+                    dyn = BFGS(atoms, logfile=None)
                 else:
                     raise ValueError('Saving output level keyword is not supported')
                 ##traj = Trajectory( os.path.join(new_cumpute_directory, 'opt.traj'), 'w', atoms)
@@ -490,7 +506,10 @@ class energy_computation:
             vec = self.cluster_to_vector( atoms, vec )  
             
         elif self.calculator_type == 'structural': # For structure generation
-            energy = 0.0
+            if self.if_coarse_calc:
+                energy = atoms.get_potential_energy()
+            else:
+                energy = 0.0
             
         else:
             raise ValueError('calculator_type is not supported')

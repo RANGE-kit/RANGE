@@ -9,7 +9,7 @@ from RANGE_py.utility import correct_surface_normal
 import numpy as np
 from ase.io import read
 import string
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull, Delaunay, cKDTree
 
 
 class cluster_model:
@@ -63,7 +63,7 @@ class cluster_model:
         atoms.euler_rotate(center=center, phi=angles[0], theta=angles[1], psi=angles[2])
 
     # From constraint_type and _value, generate the bound condition for the algorithm.
-    # Output: templates (shape= # of molecules in cluster), boundary ( 6*templates * tuple of size 2)
+    # Output: templates (shape= # of molecules in cluster), boundary ( always= 6*templates * tuple of size 2)
     # Output: go_conversion_rule (shape = templates) contains items where spherical condition is used.
     def generate_bounds(self):
         go_templates, go_boundary, go_conversion_rule = [],[], []
@@ -77,7 +77,7 @@ class cluster_model:
                 Put molecule at a position (X,Y,Z) with certain orientation (fixed) or random orientation
                 if input parameter dim = 6, i.e. [Center of molecule, 3 Euler angles in degrees], then fix the molecule
                 
-                length of conversion_rule_para is 0
+                conversion_rule_para starts with at_position
                 """
                 if len( self.constraint_value[n] )==6:  # fix all
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), self.constraint_value[n][3:] )
@@ -89,6 +89,7 @@ class cluster_model:
                     bound = [(0,0)]*6
                 else:
                     raise ValueError('Number of parameters should be 6 or 3 or 0')
+                conversion_rule_para = ('at_position',)
 
             elif self.constraint_type[n] == 'in_box':
                 """
@@ -98,13 +99,14 @@ class cluster_model:
                 for input parameter is [xlo, ylo, zlo, xhi, yhi, zhi] *2
                 The second box is used the exclude the region (outside box)
                 
-                length of conversion_rule_para is 0 for inside box, but 2 for inside+outside box
+                conversion_rule_para starts with in_box for inside box, in_box_out for inside+outside box
                 """
                 if len( self.constraint_value[n] )==6: # Inside box only
                     box_size = np.array( self.constraint_value[n] )
                     box_size = box_size[3:] - box_size[:3]
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), [0,0,0] ) # move molecule to lower corner
                     bound = [ (0,box_size[0]) , (0,box_size[1]) , (0,box_size[2]) ] + [(0,360)]*3
+                    conversion_rule_para = ('in_box',)
                 elif len( self.constraint_value[n] )==12: # Inside first box and outside the second box
                     box_size = np.array( self.constraint_value[n] )
                     box_size_outer = box_size[3:6] - box_size[:3]
@@ -112,9 +114,9 @@ class cluster_model:
                     bound = [ (0,box_size_outer[0]) , (0,box_size_outer[1]) , (0,box_size_outer[2]) ] + [(0,360)]*3
                     box_inner_lo = box_size[6:9] - box_size[:3]
                     box_inner_hi = box_size[9: ] - box_size[:3]
-                    conversion_rule_para = ( tuple(box_inner_lo), tuple(box_inner_hi) )
+                    conversion_rule_para = ('in_box_out', tuple(box_inner_lo), tuple(box_inner_hi) )
                 else:
-                    raise ValueError('Number of parameters should be 6')
+                    raise ValueError('Number of parameters should be 6 or 12')
                 
             elif self.constraint_type[n] == 'in_sphere_shell':
                 """
@@ -126,11 +128,11 @@ class cluster_model:
                 Also, later when vec is converted to XYZ coord, we don't know if they are cart or sphe coord.
                 Work around: use another list to indicate conversion rule: if empty -> cart; if length=3 -> sphe. This could be updated by a smarter way without defining anything (maybe)...
                 
-                length of conversion_rule_para is 3
+                conversion_rule_para starts with in_sphere_shell
                 """
                 if len( self.constraint_value[n] )==6 or len( self.constraint_value[n] )==7:
                     self._move_a_molecule(new_mol, tuple(self.constraint_value[n][:3]), [0,0,0] ) # move molecule to the center of sphere X,Y,Z
-                    conversion_rule_para = tuple(self.constraint_value[n][3:6])  # Contains the three axis of ellipsoid
+                    conversion_rule_para = ( ['in_sphere_shell']+[i for i in self.constraint_value[n][3:6]] ) # Contains the three axis of ellipsoid
                     # the range of r ( or rho ) for sphere is 0~1, but for ellipsoid, it depends on three semi-axis of ellipsoid. I don't think there are closed-form expression on this.
                     if len( self.constraint_value[n] )==6: # in_sphere
                         bound = [ (0,1), (0,360) , (0,180) ] + [(0,360)]*3  # r, theta (0*2pi), phi (0~pi),  + Euler angles
@@ -153,11 +155,12 @@ class cluster_model:
                     For binding location (3): index of face (from 0,1,2...), factor1 and factor2 for a point on this surface
                     For binding distance and angle (3) : binding distance(lo,hi), rotation angle along surf_norm axis, Null (rotate to surf)
                 
-                length of conversion_rule_para >= 2+3
+                conversion_rule_para starts with on_surface
                 """
                 # First make sure we can generate the surface of substrate correctly
                 try:
-                    substrate_mol = go_templates[ self.constraint_value[n][0] ] # Substrate must have more than 3 atoms
+                    substrate_mol = go_templates[ self.constraint_value[n][0] ] 
+                    assert len(substrate_mol)>3, 'Substrate must have more than 3 atoms'
                     # rattle substrate to ensure 3d space is occupied for convex hull computation
                     for i in range(3):
                         if np.sum(np.abs(substrate_mol.get_positions()[:,i])) == 0: # We have a perfect surface (which is possible but rare)
@@ -173,8 +176,8 @@ class cluster_model:
 
                 # Save the surface information of substrate for future use
                 # Put together the position of three vertices and surface normal direction
-                number_of_faces = len(hull.simplices)
-                conversion_rule_para = [ adsorbate_at_position, adsorbate_in_direction ]
+                number_of_faces = len(hull.simplices) # dim >= 4
+                conversion_rule_para = [ 'on_surface', adsorbate_at_position, adsorbate_in_direction ]
                 for i in range(number_of_faces):
                     point = substrate_mol.positions[hull.simplices[i]] # XYZ of three vertices in this face
                     surf_norm = hull.equations[i, :-1] # The surface normal direction
@@ -184,23 +187,102 @@ class cluster_model:
                 conversion_rule_para = tuple( conversion_rule_para ) # Length will be >2+3, depending on how many faces
                 
                 bound = [ (-0.499, number_of_faces-1+0.499), (0,1), (0,1) , self.constraint_value[n][1], (0,360), (0,0)]
+              
+            elif self.constraint_type[n] == 'in_pore':
+                """
+                Inside the pore defined by surfaces (defined by a set of atoms)
+                Input parameter is:
+                    int: molecular index of the substrate
+                    list of int: list of atom index in the substrate to make the convex hull surface
+                    float: grid point resolution (grid spacing)
+                Output is:
+                    index in grid points, and rotational angles
+                conversion_rule_para starts with in_pore
+                """
+                substrate_mol = go_templates[ self.constraint_value[n][0] ] 
+                points = substrate_mol.get_positions()[ self.constraint_value[n][1] ]
+                assert len(points)>3, 'Need at least 4 points'
+                hull = ConvexHull( points )
+                deln = Delaunay(points[hull.vertices])
+                # Grid points:
+                points_lo, points_hi = np.amin(points,axis=0)-0.1, np.amax(points,axis=0)+0.1 # Dim = 3
+                dx = self.constraint_value[n][2] 
+                x = np.arange(points_lo[0], points_hi[0], dx)
+                y = np.arange(points_lo[1], points_hi[1], dx)
+                z = np.arange(points_lo[2], points_hi[2], dx)
+                X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+                grid_points = np.vstack([X.ravel(), Y.ravel(), Z.ravel()]).T
+                # Points inside the convex hull
+                inside = deln.find_simplex(grid_points) >= 0
+                inner_grid = grid_points[inside]
+                # Remove points too close to any atom
+                tree = cKDTree(points)
+                dist, _ = tree.query(inner_grid, k=1)
+                filtered_grid = inner_grid[dist > 1.0 ]  # min dist for cutoff =1.0. Dim = N*3
+                
+                # Output:
+                conversion_rule_para = ( 'in_pore', tuple(filtered_grid) )
+                bound = [ (-0.499, len(filtered_grid)-1+0.499), (0,0), (0,0) ] + [(0,360)]*3
+                
+            elif self.constraint_type[n] == 'micelle' or self.constraint_type[n] == 'layer':
+                """
+                Define grid points uniformly on a plane or ellipsoid surface
+                Input parameter is:
+                    array (Dim=3) * 3, float for layer
+                    float * 3, array (Dim=3), float for ellipsoid
+                Output is:
+                    grid points
+                conversion_rule_para starts with micelle or layer
+                """
+                if self.constraint_type[n] == 'layer' and len( self.constraint_value[n] ) == 4: # (P1,P2,P3,spacing) for plane (layer)
+                    u = self.constraint_value[n][1] - self.constraint_value[n][0]
+                    v = self.constraint_value[n][2] - self.constraint_value[n][0]
+                    n_u = max(int(np.linalg.norm(u) / self.constraint_value[n][3] ) + 1, 2)
+                    n_v = max(int(np.linalg.norm(v) / self.constraint_value[n][3] ) + 1, 2)
+                    s = np.linspace(0, 1, n_u)
+                    t = np.linspace(0, 1, n_v)
+                    S, T = np.meshgrid(s, t)
+                    grid_points = self.constraint_value[n][0] + (S.ravel()[:, None] * u) + (T.ravel()[:, None] * v)
+                    conversion_rule_para = ( 'layer', tuple(grid_points) )
+                elif self.constraint_type[n] == 'micelle' and len( self.constraint_value[n] ) == 5: # (a,b,c,center, spacing) for ellipsoid (micelle)
+                    a,b,c = self.constraint_value[n][0],self.constraint_value[n][1],self.constraint_value[n][2]
+                    center, spacing = self.constraint_value[n][3],self.constraint_value[n][4]
+                    # Estimate number of divisions in theta and phi
+                    n_theta = max(int(np.pi * b / spacing), 2)   # latitude divisions
+                    n_phi = max(int(2 * np.pi * a / spacing), 2) # longitude divisions
+                    theta_vals = np.linspace(0, np.pi, n_theta)
+                    phi_vals = np.linspace(0, 2*np.pi, n_phi)
+                    
+                    grid_points = []
+                    for theta in theta_vals:
+                        for phi in phi_vals:
+                            x = center[0] + a * np.sin(theta) * np.cos(phi)
+                            y = center[1] + b * np.cos(theta)
+                            z = center[2] + c * np.sin(theta) * np.sin(phi)
+                            grid_points.append([x, y, z])
+                    conversion_rule_para = ( 'micelle', tuple(grid_points) )
+                else:
+                    raise ValueError('Wrong number of input constraint and parameter')
+
+                # Output:
+                bound = [ (-0.499, len(grid_points)-1+0.499), (0,0), (0,0) ] + [(0,360)]*3
                 
             elif self.constraint_type[n] == 'replace':
                 """
-                Replace certain atoms in another substrate molecule defined by fixed position
+                Replace certain atoms in another substrate molecule (the first in order) by atom index
                 Input parameter is: 
-                    int: molecualr index of the substrate molecule. (Keeping this for future flexibility) Currently must be 0.
                     tuple of int (replacement list): the atom index to be replaced in the substrate
                 Output parameter (so far):
                     the index of items in the replacement list + not used*5 (to keep length as 6)
                 
-                length of conversion_rule_para is 1
+                conversion_rule_para starts with replace
                 """
                 #conversion_rule_para = ( self.constraint_value[n][0], tuple(self.constraint_value[n][1]) ) # The mol idx, and atom idx
-                conversion_rule_para = ( tuple(self.constraint_value[n][0]) ) # atom idx. The mol idx will always be 0 (the first mol)
-                num_of_site = len(self.constraint_value[n][1])
+                conversion_rule_para = ( 'replace', tuple(self.constraint_value[n]) ) # atom idx. The mol idx will always be 0 (the first mol)
+                num_of_site = len(self.constraint_value[n])
 
                 bound = [(-0.499, num_of_site-1+0.499) , (0,0), (0,0) ] + [(0,0)]*3
+                
             else:
                 raise ValueError('Constraint type is not supported')
 

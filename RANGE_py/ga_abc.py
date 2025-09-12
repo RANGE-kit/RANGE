@@ -460,7 +460,7 @@ class GA_ABC():
             
         # Run completed
         if print_interval is not None: 
-            print(f"Completed with best Y: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
+            print(f"Job completed with best GM: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
         
         if if_return_results:
             return self.pool_x, self.pool_y, self.pool_name

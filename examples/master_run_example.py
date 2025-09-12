@@ -34,7 +34,7 @@ methane = 'xyz_structures/methane.xyz'
 organic_sub = 'xyz_structures/Substrate.xyz'
 single_atom = 'xyz_structures/Single_atom.xyz'
 slab_surface = 'xyz_structures/Slab_BaTiO3_7layer.xyz'
-copper_12 = 'xyz_structures/Cu12.xyz'
+copper_13 = 'xyz_structures/Cu13.xyz'
 co2 = 'xyz_structures/CO2.xyz'
 #O_atoms_idx_in_slab = tuple([at.index for at in read(slab_surface) if at.symbol=='O'])
 
@@ -74,6 +74,18 @@ on_surface
     (lo, hi) define the limit of adsorption distance between the adsorbate and adsorbent.
     ID_atom_on_surf and ID_atom_orientation define the atom index on the surface and the atom index to define the orientation of adsorbate.
     Example: (0, (1.9, 2.1), 0, 6)
+    
+in_pore
+    input parameter: ID_substrate, ID_atom_considered, grid spacing 
+    ID_substrate in integer, ID_atom_considered is a list of integer, grid spacing is float
+    To add molecules in the space defined by the grid points from ID_atom.
+    Example: ( 0, (1,2,5,8,9), 0.1 )
+    
+micelle or layer
+    input parameter: (X Y Z),(X Y Z),(X Y Z),spacing for layer, or A,B,C,(X Y Z),spacing for ellipsoid
+    X,Y,Z,A,B,C,spacing are float
+    To add molecules on a planar surface or ellipsoid surface using an uniform grid 
+    Example: ( (0,0,0), (1,1,1), (1,-1,-1), 1.5 ) or (3,4,5, (0,0,0), 1.8)
 
 replace:
     input parameter: ID_substrate, tuple/list of integers 
@@ -101,7 +113,7 @@ print( "Step 2: Setting calculator" )
 # The coarse optimizer uses Lennard Jones force field plus Columb interaction, and it fixes internal degree of freedom (i.e. rigid body)
 # By default we use UFF parameter and no atomic charge. No constraint during optimization (e.g. no frozen atom)
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
-                            coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None)
+                            coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None )
 
 # Then we need to pick a more accurate way to compute energy
 # We can use ASE calculator python interface

@@ -102,7 +102,7 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     X_sorted = (X_sorted - X_sorted.mean(axis=0)) / X_sorted.std(axis=0)  ## z-score normalization
     Y_sorted = np.round( np.asarray(Y_ener)[sorted_idx] , 6 )
     # Bin candidates by energy
-    bin_size = np.abs(Y_sorted[0])*1E-4 # 0.1% of GM
+    bin_size = np.abs(Y_sorted[0])*1E-4 + 1E-12 # 0.1% of GM
     bins = {}
     for n in range( len(Y_sorted) ):
         idx = int( Y_sorted[n] / bin_size )
@@ -138,7 +138,7 @@ def check_structure_sanity(atoms, energy):
     dist = atoms.get_all_distances(mic=True, vector=False)
     dist = dist[np.triu_indices(dist.shape[0], k=1)] # only upper triangle without diagonal values
     if np.amin(dist)<0.7: # bad distance. collapse.
-        energy = 1E9 # bad structure
+        energy = 2E9 # bad structure
     return energy
     
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
