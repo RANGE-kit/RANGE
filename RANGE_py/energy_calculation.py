@@ -14,6 +14,7 @@ from ase.optimize import BFGS
 #from ase.io.trajectory import Trajectory
 from ase.io import read, write
 from ase.calculators.calculator import Calculator, all_changes
+from ase.neighborlist import NeighborList
 
 import subprocess
 import shutil
@@ -22,7 +23,7 @@ import time
 
 from RANGE_py.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
 from RANGE_py.utility import check_structure_sanity
-from RANGE_py.input_output import get_CP2K_run_info
+from RANGE_py.input_output import get_CP2K_run_info, convert_xyz_to_lmps, convert_xyz_to_gro
 
 
 """
@@ -48,6 +49,7 @@ class RigidLJQ_calculator(Calculator):
         self.cutoff = cutoff
         self.lower_cutoff = 0.3 # To avoid too close atoms
         self.coulomb_const = coulomb_const
+        self.precision = np.float32
 
         # Create lookup for quick atom-to-molecule membership check
         natom = 0 # index pointer
@@ -58,48 +60,53 @@ class RigidLJQ_calculator(Calculator):
             chemical_symbol_list += mol.get_chemical_symbols()
             atom_index_in_this_mol = []
             for idx in mol: # loop all atoms in this molecule
-                self.atom_to_mol[natom] = i  # This atom belongs to this mol
+                self.atom_to_mol[natom] = i  # This atom (natom point) belongs to this mol (i)
                 atom_index_in_this_mol.append( natom )
                 natom += 1
             self.mol_to_atom[i] = atom_index_in_this_mol
                 
         # Make sure LJ parameter is atom-specific
         if isinstance(epsilon, (int, float)): # same value for all 
-            self.epsilon = [epsilon]*natom
+            epsilon = [epsilon]*natom
         elif isinstance(epsilon, dict): 
-            self.epsilon = [ epsilon[i] for i in chemical_symbol_list ] # User provided
+            epsilon = [ epsilon[i] for i in chemical_symbol_list ] # User provided
         elif epsilon=='UFF':
-            self.epsilon = [ get_UFF_para(i)[0] for i in chemical_symbol_list ] # Use UFF table
+            epsilon = [ get_UFF_para(i)[0] for i in chemical_symbol_list ] # Use UFF table
         else:
             raise ValueError('Epsilon is not assigned properly')
+        self.epsilon = np.array(epsilon, dtype=self.precision )
 
         if isinstance(sigma, (int, float)): 
-            self.sigma = [sigma]*natom
+            sigma = [sigma]*natom
         elif isinstance(sigma, dict): 
-            self.sigma = [ sigma[i] for i in chemical_symbol_list ]
+            sigma = [ sigma[i] for i in chemical_symbol_list ]
         elif sigma=='UFF':
-            self.sigma = [ get_UFF_para(i)[1] for i in chemical_symbol_list ]
+            sigma = [ get_UFF_para(i)[1] for i in chemical_symbol_list ]
         else:
             raise ValueError('Sigma is not assigned properly')
+        self.sigma = np.array(sigma, dtype=self.precision )
 
         # Atomic charge is also atom-specific
         if isinstance(charge, (list,np.ndarray)):
             if len(charge)!=natom: 
                 raise ValueError('Charge and molecules should have the same length: ', len(charge), natom)
             else:
-                self.charge = np.array(charge, dtype=float)
+                self.charge = np.array(charge, dtype=self.precision)
         elif isinstance(charge, (int, float)):
-            self.charge = np.array([charge]*natom)
+            self.charge = np.array([charge]*natom, dtype=self.precision)
         else:
             raise ValueError('Charge is not assigned properly')
+            
+        # Build neighbor list once
+        self.nl = NeighborList([self.cutoff]*natom, self_interaction=False, bothways=True)
+        
 
     def convert_force_to_rigid(self, all_positions, all_forces, dict_mol_to_atom):
-        new_forces = np.zeros_like(all_forces)
+        new_forces = np.zeros_like(all_forces).astype(self.precision)
         for mol in dict_mol_to_atom.values():
-            mol = np.array(mol)
             pos = all_positions[mol]
-            pos_center  = np.mean(pos, axis=0)
             frc = all_forces[mol]
+            pos_center  = np.mean(pos, axis=0)
             total_force = np.sum(frc, axis=0) 
 
             """
@@ -124,57 +131,67 @@ class RigidLJQ_calculator(Calculator):
     
     def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
         super().calculate(atoms, properties, system_changes)
-        positions = atoms.get_positions()
-        natoms = len(positions)
-        forces = np.zeros_like(positions)
+        positions = atoms.get_positions().astype(self.precision)
+        forces = np.zeros_like( positions, dtype=self.precision )
         energy = 0.0
 
-        # Loop over unique atom pairs
-        for i, j in combinations(range(natoms), 2):
-            # Skip if in the same molecule (rigid body constraint)
-            if self.atom_to_mol[i] == self.atom_to_mol[j]:
-                continue
-                
-            #rij = positions[j] - positions[i]
-            rij = atoms.get_distance(i, j, mic=True, vector=True)
-            r = np.linalg.norm(rij)
-            if r > self.cutoff:
-                continue
-            elif r < self.lower_cutoff:
-                if r<1e-5: # This helps to kick atoms when they exactly overlap.
-                    rij = np.random.rand(3)
-                    rij = rij/np.linalg.norm(rij)* self.lower_cutoff # vec with 0.2 length
-                r = self.lower_cutoff # To avoid divided by zero when too close. 
-                    
-            # Lennard-Jones Potential with Lorentz-Berthelot (LB)
-            sig = (self.sigma[i] + self.sigma[j] )/2
-            eps = np.sqrt(self.epsilon[i]*self.epsilon[j])
-            e_cutoff = 4 * eps * ((sig / self.cutoff) ** 12 - (sig / self.cutoff) ** 6) # energy at cutoff
-            
-            sr6 = (sig / r) ** 6
-            sr12 = sr6 * sr6
-            e_lj = 4*eps*(sr12 - sr6) - e_cutoff # Shift by cutoff energy to ensure continuous energy, although force will not be
-            # Force magnitude and direction
-            f_lj = -24 * eps / r * (2 * sr12 - sr6) # note the minus sign
-            f_lj = f_lj * (rij / r)
-            
-            # Coulomb e and f
-            q1,q2 = self.charge[i], self.charge[j]
-            e_coul = self.coulomb_const * q1 * q2 / r
-            f_coul = self.coulomb_const * q1 * q2 / (r ** 2)
-            f_coul = f_coul * (rij / r)
-            
-            # Apply force (Newton's 3rd law)
-            forces[i] += (f_lj + f_coul)
-            forces[j] -= (f_lj + f_coul)
+        # Update neighbor list
+        #self.nl = NeighborList([self.cutoff]*len(positions), self_interaction=False, bothways=True)
+        self.nl.update(atoms)
 
-            energy += (e_lj + e_coul)
-            #print( e_lj , e_coul )
+        # Prepare arrays for vectorization
+        i_list, j_list, rij_list = [], [], []
+        for i in range( len(positions) ):
+            indices, offsets = self.nl.get_neighbors(i)
+            for j, offset in zip(indices, offsets):
+                if j <= i or self.atom_to_mol[i] == self.atom_to_mol[j]:  # avoid double counting, or intramolecule force
+                    continue
+                i_list.append(i)
+                j_list.append(j)
+                rij = positions[j] + np.dot(offset, atoms.get_cell()) - positions[i]
+                rij_list.append(rij)
 
-        # Now, atoms in the same molecule need to have the same force
-        forces = self.convert_force_to_rigid( positions, forces, self.mol_to_atom )
-        
-        self.results['energy'] = energy 
+        if len(i_list) == 0:
+            self.results['energy'] = 0.0
+            self.results['forces'] = np.zeros_like(positions)
+            return
+
+        i_list = np.array(i_list)
+        j_list = np.array(j_list)
+        rij_list = np.array( rij_list, dtype=self.precision )
+
+        # Distances
+        r = np.linalg.norm(rij_list, axis=1)
+        r = np.maximum(r, self.lower_cutoff)  # avoid zero division by element-pair comparison
+
+        # LJ parameters
+        sigma_ij = ( self.sigma[i_list] + self.sigma[j_list] ) / 2
+        eps_ij = np.sqrt( self.epsilon[i_list] * self.epsilon[j_list] )
+
+        # LJ energy & forces (vectorized)
+        sr6 = (sigma_ij / r) ** 6
+        sr12 = sr6 * sr6
+        e_cutoff = 4 * eps_ij * ((sigma_ij / self.cutoff) ** 12 - (sigma_ij / self.cutoff) ** 6)
+        e_lj = 4 * eps_ij * (sr12 - sr6) - e_cutoff
+        f_lj = -24 * eps_ij / r * (2 * sr12 - sr6)
+
+        # Coulomb energy & forces (vectorized)
+        qq = self.charge[i_list] * self.charge[j_list]  # q1*q2
+        e_coul = self.coulomb_const * qq / r
+        f_coul = self.coulomb_const * qq / (r ** 2)
+
+        # Total forces per pair
+        f_total = (f_lj + f_coul)[:, None] * (rij_list / r[:, None])
+
+        # Accumulate forces and energy
+        np.add.at(forces, i_list, f_total)
+        np.add.at(forces, j_list, -f_total)
+        energy = np.sum(e_lj + e_coul)
+
+        # Convert to rigid forces per molecule
+        forces = self.convert_force_to_rigid(positions, forces, self.mol_to_atom)
+
+        self.results['energy'] = float(energy)
         self.results['forces'] = forces
 
 
@@ -736,6 +753,63 @@ class energy_computation:
                     atoms = read(start_xyz)
             else:
                 raise NameError('ORCA input is not provided by input key')
+                
+        elif geo_opt_para_line['method'] == 'LAMMPS':
+            if 'input' in geo_opt_para_line: # Check if LAMMPS input is ready
+                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
+                    LMPS_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
+                    LMPS_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError('LAMMPS input is not found from key path') 
+                # Run
+                convert_xyz_to_lmps(start_xyz, 'data-in.lammps')
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', LMPS_input)
+                try:
+                    result = subprocess.run(calculator_command_lines, 
+                                            shell=True, check=False, 
+                                            capture_output=True, text=True
+                                            )
+                    # Now get the energy from LAMMPS
+                    with open('job.log','r') as f1:
+                        energy = [line.split() for line in f1.readlines() if len(line.split())==3 ]
+                        energy = [e for e in energy if e[0]=='FINAL' and e[1]=='ENERGY' ]
+                    energy = float(energy[-1][3]) # last energy. Value is the last value
+                    # Get the final structure 
+                    atoms = read( 'data-out.lammps' )
+                except subprocess.CalledProcessError as e:
+                    print( 'LAMMPS Error: ', job_directory , e.stderr)
+                    energy = 1e7
+                    atoms = read(start_xyz)
+                    
+        elif geo_opt_para_line['method'] == 'GROMACS':
+            if 'input' in geo_opt_para_line: # Check if GMX input is ready
+                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
+                    GMX_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
+                    GMX_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError('GROMACS input is not found from key path') 
+                # Run
+                convert_xyz_to_gro(start_xyz, 'data-in.gro')
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', GMX_input)
+                try:
+                    result = subprocess.run(calculator_command_lines, 
+                                            shell=True, check=False, 
+                                            capture_output=True, text=True
+                                            )
+                    # Now get the energy from output
+                    with open('job.log','r') as f1:
+                        energy = [line.split() for line in f1.readlines() if len(line.split())==4 ]
+                        energy = [e for e in energy if e[0]=='Potential' and e[1]=='Energy' ]
+                    energy = float(energy[-1][3]) # last energy. Value is the last value
+                    # Get the final structure 
+                    atoms = read( 'data-out.gro' )
+                except subprocess.CalledProcessError as e:
+                    print( 'LAMMPS Error: ', job_directory , e.stderr)
+                    energy = 1e7
+                    atoms = read(start_xyz)        
+            
 
         elif geo_opt_para_line['method'] == 'User':  # If a general way from user
             subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)

@@ -1,0 +1,49 @@
+integrator               = steep
+nsteps                   = 5000
+nstcomm                  = 5000
+
+emtol                    = 100.  ; Force tolerance in kJ/mol/nm 
+emstep                   = 0.1  ; Initial step size in nm.
+
+nstxout                  = 500
+nstvout                  = 500
+nstfout                  = 500
+nstlog                   = 500
+nstcalcenergy            = 500
+nstxout-compressed       = 500
+compressed-x-precision   = 500
+
+cutoff-scheme            = Verlet
+nstlist                  = 10
+ns_type                  = grid
+pbc                      = xyz
+periodic-molecules       = no
+verlet-buffer-tolerance  = 0.005
+rlist                    = 1.0
+
+coulombtype              = PME
+coulomb-modifier         = Potential-shift-Verlet
+rcoulomb-switch          = 0
+rcoulomb                 = 1.0
+epsilon-r                = 1
+epsilon-rf               = 1
+vdw-type                 = Cut-off
+vdw-modifier             = Potential-shift-Verlet
+rvdw-switch              = 0
+rvdw                     = 1.0
+DispCorr                 = EnerPres
+
+; Spacing FFT grid. Can be over written by fourier-n.
+fourierspacing           = 0.3
+pme_order                = 4
+ewald-rtol               = 1e-005
+ewald-rtol-lj            = 0.001
+lj-pme-comb-rule         = Geometric
+ewald-geometry           = 3d
+epsilon-surface          = 0
+
+constraints              = h-bonds
+constraint_algorithm     = lincs
+lincs_order              = 8
+lincs_iter               = 8
+lincs-warnangle          = 90

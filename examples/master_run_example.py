@@ -140,7 +140,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
 # for external CP2K:
     calculator_command_line = " srun shifter --entrypoint cp2k -i  {input_script}  -o job.log "
     geo_opt_control_line = dict(method='CP2K', input='input_CP2K')
-# for external CP2K:
+# for external Gaussian:
     calculator_command_line = " g16 < {input_script}  > job.log "
     geo_opt_control_line = dict(method='Gaussian', input='input_gaussian_template') # This input will be your gaussian input script
 # for anything else in general: (This can be flexible to add other software as needed.)
@@ -151,7 +151,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
     calculator = calculator_command_line ,
     calculator_type = 'external',
     geo_opt_para = geo_opt_control_line ,
-
+We currently provided external examples for LAMMPS, GROMCAS, xTB, CP2K, ORCA, Gaussian.
 """
 
 # Now we know what structures we are making and how to compute their energies. We can put together and run the algorithm to find good structures

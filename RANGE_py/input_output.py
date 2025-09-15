@@ -103,6 +103,15 @@ def get_CP2K_run_info(CP2K_input_script_file, initial_xyz):
                     atoms = read(entry, index='-1') # The last frame of traj
     return atoms
 
+def convert_xyz_to_lmps(input_xyz, output_lammps):
+    atoms = read(input_xyz)
+    write(output_lammps,atoms, atom_style='charge')
+    
+def convert_xyz_to_gro(input_xyz, output_gro):
+    atoms = read(input_xyz)
+    write(output_gro,atoms)
+
+
 def save_energy_summary(output_file='energy_summary.log', 
                         db_path='structure_pool.db', 
                         directory_path='results'):

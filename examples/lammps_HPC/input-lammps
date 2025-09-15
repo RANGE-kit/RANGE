@@ -1,0 +1,31 @@
+units           real
+atom_style      charge
+dimension       3
+boundary        p p p
+atom_modify     map array
+
+read_data       data-in.lammps
+
+mass            1  12.0
+mass            2   1.008
+mass            3  15.999
+mass            4  14.0
+
+pair_style      reax/c NULL
+pair_coeff      * * /home/zhan051/bin/ffield.reax.chon_2017_weak C H O N
+
+timestep        0.1
+
+fix             chg1 all  qeq/reax  1  0.0  10.0  1e-6  reax/c
+
+thermo          1
+thermo_style    custom step elapsed temp press etotal pe ke 
+thermo_modify   norm yes
+
+minimize        1.0e-4 1.0e-4 1 1
+dump            1 all xyz 10000 data-out.xyz
+###dump_modify     1 element  C H O N
+minimize        1.0e-8 1.0e-8 1000 10000
+
+write_data      data-out.lammps
+print "FINAL ENERGY: $(pe)" # Print energy
