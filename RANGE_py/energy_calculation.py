@@ -192,7 +192,7 @@ class RigidLJQ_calculator(Calculator):
         forces = self.convert_force_to_rigid(positions, forces, self.mol_to_atom)
 
         self.results['energy'] = float(energy)
-        self.results['forces'] = forces
+        self.results['forces'] = forces.astype(np.float64) # ASE requires
 
 
 class energy_computation:
@@ -824,4 +824,5 @@ class energy_computation:
         
         return atoms, energy 
     
+
 
