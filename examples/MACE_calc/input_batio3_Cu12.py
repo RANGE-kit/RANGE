@@ -31,8 +31,8 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
-xyz_path = './'
-substrate = os.path.join(xyz_path, 'batio3-cub-7layer-tio.xyz' )
+xyz_path = 'xyz_structures/'
+substrate = os.path.join(xyz_path, 'BaTiO3-cub-7layer-TiO.xyz' )
 adsorb = os.path.join(xyz_path, 'Cu.xyz')
 
 input_molecules = [substrate,adsorb]
@@ -56,8 +56,8 @@ print( "Step 2: Setting calculator" )
 
 # for ASE
 #ase_calculator = XTB(method="GFNFF") 
-model_path = '/ccsopen/home/d2j/software/downloaded_models/2023-12-10-mace-128-L0_energy_epoch-249.model'
-#model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model'
+#model_path = '/ccsopen/home/d2j/software/downloaded_models/2023-12-10-mace-128-L0_energy_epoch-249.model'
+model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model'
 ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", device='cpu')
 
 # Constraint
@@ -77,18 +77,21 @@ computation = energy_computation(templates = cluster_template,
                                  geo_opt_para = geo_opt_parameter, 
                                  if_coarse_calc = True, 
                                  coarse_calc_para = coarse_opt_parameter,
-                                 #save_output_level = 'Full',
+                                 save_output_level = 'Simple',
                                  )
 
 # Put together and run the algorithm
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=10, limit=20, max_iteration=50, 
-                      ga_interval=10, ga_parents=5, mutate_rate=0.2, mutat_sigma=0.05,
+                      colony_size=40, limit=40, max_iteration=5000, 
+                      ga_interval=1, ga_parents=20, mutate_rate=0.5, mutat_sigma=0.05,
                       output_directory = output_folder_name,
                       # Restart option
-                      #restart_from_pool = 'structure_pool.db',
+                      restart_from_pool = 'structure_pool.db',
+                      apply_algorithm = 'ABC_GA',
+                      if_clip_candidate = True,  
+                      early_stop_parameter = {'Max_candidate':6000},
                       )
 optimization.run(print_interval=1)
 
