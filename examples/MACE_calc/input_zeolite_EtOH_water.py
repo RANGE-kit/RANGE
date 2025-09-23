@@ -56,7 +56,7 @@ cluster_atoms = Atoms()
 #index_Al = [at.index for at in cluster_atoms if at.symbol =='Al'][0]
 ase_constraint = None #FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'Cu'])
 
-geo_opt_parameter = dict(fmax=0.2, steps=200, ase_constraint=ase_constraint)
+geo_opt_parameter = dict(fmax=0.05, steps=200, ase_constraint=ase_constraint)
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0,
                             coarse_calc_step=20, coarse_calc_fmax=10, coarse_calc_constraint=ase_constraint)
 

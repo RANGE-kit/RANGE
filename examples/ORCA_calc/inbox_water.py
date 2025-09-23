@@ -33,7 +33,7 @@ water = '../Water.xyz'
 input_molecules = [water]#, co2]
 input_num_of_molecules = [3]#, 1]
 input_constraint_type = [ 'in_box' ]
-input_constraint_value = [ (0,0,0,4,4,4) ]
+input_constraint_value = [ (0,0,0, 5,5,5) ]
 
 print( "Step 1: Setting cluster" )
 cluster = cluster_model(input_molecules, input_num_of_molecules, 
@@ -67,10 +67,10 @@ print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # From previous definitions
                       colony_size=5,            # The number of bee in ABC algorithm
                       limit=20,                 # The upper threshold to convert a bee to scout bee
-                      max_iteration=1,         # The max number of iterations
+                      max_iteration=10,         # The max number of iterations
                       ga_interval=2,            # The interval iteration to call GA algorithm
                       ga_parents=3,             # The number of bees to mutate (must be no more than colony_size)
-                      mutate_rate=0.2, mutat_sigma=0.05,            # The mutation factor in GA
+                      mutate_rate=0.5, mutat_sigma=0.03,            # The mutation factor in GA
                       output_directory = output_folder_name,        # Save results to this folder
                       #restart_from_pool = 'structure_pool.db',      # Restart option: read previous results from either a database (XX.db) or a directory (results). None (default) means a fresh start.
                       )

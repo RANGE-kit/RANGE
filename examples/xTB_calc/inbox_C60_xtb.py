@@ -32,10 +32,10 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 carbon = '../xyz_structures/C.xyz'
 
 input_molecules = [carbon]
-input_num_of_molecules = [12]
+input_num_of_molecules = [60]
  
 input_constraint_type = ['in_sphere_shell'] # in_box
-input_constraint_value = [(0,0,0,11,11,11)] #[(0,0,0, 11,11,11, 4,4,4, 7,7,7) ]
+input_constraint_value = [(0,0,0,11,11,11, 0.5)] #[(0,0,0, 11,11,11, 4,4,4, 7,7,7) ]
 
 print( "Step 1: Setting cluster" )
 # Set the cluster structure
@@ -53,7 +53,7 @@ coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse
 
 # for ASE
 ase_calculator = XTB(method="GFN2-xTB", max_iterations=1000, electronic_temperature=2000 ) 
-geo_opt_parameter = dict(fmax=0.2, steps=200)
+geo_opt_parameter = dict(fmax=0.02, steps=500)
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
                                  calculator = ase_calculator,
@@ -85,7 +85,7 @@ computation = energy_computation(templates = cluster_template,
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=5, limit=10, max_iteration=5, initial_population_scaler=5,
+                      colony_size=10, limit=30, max_iteration=5, initial_population_scaler=5,
                       ga_interval=2, ga_parents=5, mutate_rate=0.5, mutat_sigma=0.03,
                       output_directory = output_folder_name,
                       # Restart option
