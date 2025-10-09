@@ -10,7 +10,7 @@ import numpy as np
 
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
 from scipy.spatial.transform import Rotation 
-from scipy.spatial.distance import cdist
+#from scipy.spatial.distance import cdist
 
 
 def cartesian_to_ellipsoidal_deg(x, y, z, A, B, C):

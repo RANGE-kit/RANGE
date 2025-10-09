@@ -9,7 +9,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-from RANGE_py.ga_abc import GA_ABC
+from RANGE_go.ga_abc import GA_ABC
 
 """
 # One-dimension Target function

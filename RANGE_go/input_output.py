@@ -10,7 +10,7 @@ import numpy as np
 
 from ase.io import read, write
 from ase.db import connect
-from RANGE_py.utility import select_max_diversity
+from RANGE_go.utility import select_max_diversity
             
                    
 def clean_directory(dir_path):

@@ -4,7 +4,7 @@ Created on Wed Jun  4 08:56:08 2025
 
 @author: d2j
 """
-from RANGE_py.utility import correct_surface_normal
+from RANGE_go.utility import correct_surface_normal
 
 import numpy as np
 from ase.io import read

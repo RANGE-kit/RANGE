@@ -7,7 +7,7 @@ Created on Fri Jun 20 08:30:28 2025
 
 import numpy as np
 import matplotlib.pyplot as plt
-from RANGE_py.input_output import save_energy_summary #, save_best_structure
+from RANGE_go.input_output import save_energy_summary #, save_best_structure
 
 
 results = save_energy_summary(output_file='energy_summary.log', db_path='structure_pool.db', directory_path='results')

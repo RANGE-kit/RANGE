@@ -5,9 +5,9 @@ Created on Wed Jun  4 09:09:47 2025
 @author: d2j
 """
 
-from RANGE_py.ga_abc import GA_ABC
-from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import energy_computation
+from RANGE_go.ga_abc import GA_ABC
+from RANGE_go.cluster_model import cluster_model
+from RANGE_go.energy_calculation import energy_computation
 
 import numpy as np
 import os

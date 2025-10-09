@@ -1,5 +1,5 @@
-from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import RigidLJQ_calculator
+from RANGE_go.cluster_model import cluster_model
+from RANGE_go.energy_calculation import RigidLJQ_calculator
 from ase.optimize import BFGS
 from ase.io import read, write
 from ase import Atoms

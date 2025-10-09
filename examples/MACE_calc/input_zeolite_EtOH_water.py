@@ -1,6 +1,6 @@
-from RANGE_py.ga_abc import GA_ABC
-from RANGE_py.cluster_model import cluster_model
-from RANGE_py.energy_calculation import energy_computation
+from RANGE_go.ga_abc import GA_ABC
+from RANGE_go.cluster_model import cluster_model
+from RANGE_go.energy_calculation import energy_computation
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ from ase import Atoms
 #from tblite.ase import TBLite
 from xtb.ase.calculator import XTB
 from mace.calculators import MACECalculator, mace_anicc, mace_mp, mace_off
+
 
 print("Step 0: Preparation and user input")
 # Environment setup

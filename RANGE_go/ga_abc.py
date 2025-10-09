@@ -8,8 +8,8 @@ Created on Wed Jun  4 08:55:16 2025
 import numpy as np
 import os
 import time
-from RANGE_py.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, print_code_info
-from RANGE_py.utility import select_max_diversity, compute_differences
+from RANGE_go.input_output import save_structure_to_db, read_structure_from_db, read_structure_from_directory, print_code_info
+from RANGE_go.utility import select_max_diversity, compute_differences
 
 
 class GA_ABC():

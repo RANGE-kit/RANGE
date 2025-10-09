@@ -18,12 +18,12 @@ from ase.neighborlist import NeighborList
 
 import subprocess
 import shutil
-from itertools import combinations
+#from itertools import combinations
 import time
 
-from RANGE_py.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
-from RANGE_py.utility import check_structure_sanity
-from RANGE_py.input_output import get_CP2K_run_info, convert_xyz_to_lmps, convert_xyz_to_gro
+from RANGE_go.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
+from RANGE_go.utility import check_structure_sanity
+from RANGE_go.input_output import get_CP2K_run_info, convert_xyz_to_lmps, convert_xyz_to_gro
 
 
 """
