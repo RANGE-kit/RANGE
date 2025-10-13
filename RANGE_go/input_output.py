@@ -192,7 +192,7 @@ def print_code_info(print_location):
                                            
 RANGE: a Robust Adaptive Nature-inspired Global Explorer of potential energy surfaces
 
-Please cite: TBD
+Please cite: https://doi.org/10.1063/5.0288910
 
 For any questions, please contact:
     Difan Zhang, Oak Ridge National Laboratory, USA, zhangd2@ornl.gov

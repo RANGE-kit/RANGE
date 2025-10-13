@@ -101,7 +101,8 @@ input_constraint_value = [ (0,0,0,4,4,4), (0,0,0,5,5,5,0.2) ]
 print( "Step 1: Setting cluster" )
 cluster = cluster_model(input_molecules, input_num_of_molecules, 
                         input_constraint_type, input_constraint_value,
-                        #pbc_box=(22.90076, 23.00272, 31.95000),  # Use this to consider PBC structures
+                        # pbc_box=(22.90076, 23.00272, 31.95000),  # Use this to consider PBC structures
+                        # pbc_applied=(True,True,True) # Use this to consider no-box (pbc_box is not assigned) or Dirichlet-BC (pbc_box is assigned but False appears here)
                         )
 cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()  # Generate modeling setting

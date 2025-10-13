@@ -21,18 +21,20 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
 nh3 = '../xyz_structures/NH3.xyz'
+substrate = '../xyz_structures/BaTiO3-cub-7layer-TiO.xyz' 
 
-input_molecules = [nh3]
-input_num_of_molecules = [4]
- 
-input_constraint_type = ['in_sphere_shell'] 
-input_constraint_value = [(0,0,0,11,11,11, 0.5)] 
+input_molecules = [substrate, nh3]
+input_num_of_molecules = [1, 3]
+
+input_constraint_type = ['at_position','in_box']
+input_constraint_value = [(0,0,20,0,0,0),(-2.5,-2.5,27.5, 2.5,2.5,32.5) ]
 
 print( "Step 1: Setting cluster" )
 # Set the cluster structure
 cluster = cluster_model(input_molecules, input_num_of_molecules, 
                         input_constraint_type, input_constraint_value,
-                        #pbc_box=(22.90076, 23.00272, 31.95000),
+                        pbc_box=(20.26028, 20.26028, 50), 
+                        pbc_applied = (True, True, False),
                         )
 cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
@@ -53,7 +55,7 @@ computation = energy_computation(templates = cluster_template,
                                  # Below are for coarse optimization
                                  if_coarse_calc = True, 
                                  coarse_calc_para = coarse_opt_parameter,
-                                 save_output_level = 'Full',
+                                 save_output_level = 'Simple',
                                  )
 
 # Put together and run the algorithm

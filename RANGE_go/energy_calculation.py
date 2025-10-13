@@ -236,6 +236,9 @@ class energy_computation:
                                                          sigma  = self.coarse_calc_sig,
                                                          #cutoff = self.coarse_calc_cutoff,
                                                          )
+        # For cell size and PBC condition:
+        self.Global_cell_size = self.templates[0].get_cell() # e.g., (0,0,0) or (10,20,0) or (10,10,10) etc.
+        self.Global_cell_condition = self.templates[0].get_pbc() # e.g., (True, True, False) for Dirichlet-BC, All True for PBC
 
     # Convert a vec X to 3D structure using template 
     def vector_to_cluster(self, vec):
@@ -245,10 +248,6 @@ class energy_computation:
         templates : list of ase.Atoms (one per molecule)
         Returns an ase.Atoms super-molecule positioned & rotated.
         """
-        if np.any(self.templates[0].get_pbc()):
-            Cell = self.templates[0].get_cell()
-        else:
-            Cell = None
             
         placed, resname_of_placed, resid_of_placed = Atoms(), [], []
         for i, mol in enumerate(self.templates):
@@ -367,10 +366,10 @@ class energy_computation:
         # To support vaccancy function
         #del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
         
-        # Add PBC if needed
-        if Cell is not None:
-            cluster.set_pbc( (True,True,True) )
-            cluster.set_cell( Cell )
+        # Always add cell, even if not PBC
+        cluster.set_pbc( self.Global_cell_condition )
+        cluster.set_cell( self.Global_cell_size )
+        
         return cluster
 
 
