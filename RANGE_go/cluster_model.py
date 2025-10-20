@@ -7,7 +7,10 @@ Created on Wed Jun  4 08:56:08 2025
 from RANGE_go.utility import correct_surface_normal
 
 import numpy as np
+
 from ase.io import read
+from ase import Atoms
+
 import string
 from scipy.spatial import ConvexHull, Delaunay, cKDTree
 
@@ -42,11 +45,16 @@ class cluster_model:
         self.pbc_box = pbc_box
         self.pbc_applied = pbc_applied
         
-    # prepare the molecule (atoms obj) by adding missing info
-    # Also this ensures that "molecules" is a list of ASE atoms
-    def init_molelcules(self):
+        # prepare the molecule (atoms obj) by adding missing info
+        # Also this ensures that "molecules" is a list of ASE atoms
         for i, mol in enumerate(self.molecules):
-            atoms = read(mol) # if list item is file name
+            if isinstance(mol, Atoms):  # if list item is already ASE atoms
+                atoms = mol.copy()
+            else: 
+                try:
+                    atoms = read(mol) # if list item is file name
+                except:
+                    raise ValueError( f"{mol} cannot be used as either a file or an ASE atoms. Check input." )
             if self.pbc_box is None:
                 atoms.set_pbc( (False,False,False) )
                 atoms.set_cell( (0,0,0) )

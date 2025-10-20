@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jun  4 08:55:16 2025
+Created on Wed Jun 4 08:55:16 2025
 
 @author: d2j
 """
@@ -95,6 +95,7 @@ class GA_ABC():
             self.global_structure_index  += self.previous_pool_size 
             self.pool_name = list(names)
             self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
+            self.atoms_pool = [ None for i in range(len(self.pool_name)) ]
             if print_interval is not None: 
                 print(f"Initialization from previous generations in {self.restart_from_pool}")
         else: 
@@ -103,6 +104,7 @@ class GA_ABC():
             self.x = lo + (hi-lo)*np.random.rand( self.colony_size*self.initial_population_scaler, self.bounds_dimension )  # get input X, shape = 6N*D
             os.makedirs(self.output_directory, exist_ok=True)
             self.y, self.pool_name = [], []
+            self.atoms_pool = []
             for n, initial_x_guess in enumerate(self.x):
                 self.global_structure_index += 1
                 compute_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_0_sc_{n}'
@@ -111,6 +113,7 @@ class GA_ABC():
                 self.x[n] = initial_x_guess 
                 self.y.append( initial_y ) 
                 self.pool_name.append( compute_id ) 
+                self.atoms_pool.append(atoms)
             self.y = np.array( self.y ) 
             self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool 
             # Narrow down X and Y to colony size 
@@ -218,7 +221,7 @@ class GA_ABC():
             self.global_structure_index += 1 
             new_x, new_id = self._ga_production(ga_type) 
             new_id = self.output_header + f"{self.global_structure_index:06d}_round_{iteration_idx}_ga_{ii}" + new_id 
-            new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory ) 
+            new_x, new_y, atoms = self.calc_new_candiate( new_x, new_id , self.output_directory)
             save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database ) 
             #self.update_bee_location(new_x, new_y, new_id ) 
             self._greedy_update_GA(sorted_y_index[worse_idx-ii], new_x, new_y)
@@ -227,12 +230,28 @@ class GA_ABC():
             y_off.append(new_y)
             offspring_compute_id.append(new_id)
         return  np.asarray(offspring), np.asarray(y_off), offspring_compute_id     
+                
+    def calc_new_candiate(self, candi_x, candi_id, candi_dir):
+        if self.if_return_results:
+            diff = np.mean( np.abs(self.pool_x - np.array(candi_x))/(np.abs(candi_x)+1e-16) , axis=1 )
+            overlap_id = np.where( diff < 1e-8 )[0] # threoshold             
+            if len(overlap_id)==0:
+                candi_x, candi_y, candi_atoms = self.func(candi_x, candi_id , candi_dir)
+                #self.add_to_pool([candi_x], [candi_y], [candi_id], [candi_atoms])  # Only add unique candidates to pool
+            else:
+                overlap_id = overlap_id[0]
+                candi_y, candi_atoms = self.pool_y[overlap_id], self.atoms_pool[overlap_id]
+            self.add_to_pool([candi_x], [candi_y], [candi_id], [candi_atoms])  # Or, add all candidates to pool
+        else:
+            candi_x, candi_y, candi_atoms = self.func(candi_x, candi_id , candi_dir)
+        return candi_x, candi_y, candi_atoms
+
         
-        
-    def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add):
+    def add_to_pool(self, new_x_to_add, new_y_to_add, new_name_to_add, atoms_to_add):
         self.pool_x = np.append( self.pool_x, new_x_to_add, axis=0 )
         self.pool_y = np.append( self.pool_y, new_y_to_add, axis=0 )
         self.pool_name += new_name_to_add
+        self.atoms_pool += atoms_to_add
 
     def get_best_ratio(self):
         ratio = self.best_trial/(self.global_structure_index - self.previous_pool_size + 1e-10)
@@ -256,9 +275,11 @@ class GA_ABC():
         output_line += f" | Total X: {self.global_structure_index:9d}"
         output_line += f" | Total time cost(s): {round(iteration_time,3):16.2f} | Cost per X(s): {round(iteration_time/(iteration_generation),3):8.2f}"
         return  output_line
-        
+
+    
     # The main loop 
     def run(self, print_interval=None, if_return_results=False):
+        self.if_return_results = if_return_results
         start_time = time.time()
 
         self._init_colony(print_interval) 
@@ -277,12 +298,10 @@ class GA_ABC():
                     self.global_structure_index += 1
                     new_x, new_id = self._neighbor_search(-1)
                     new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_em_{i}_from_{new_id}'
-                    new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory )
+                    new_x, new_y, atoms = self.calc_new_candiate( new_x, new_id , self.output_directory)   
                     save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database )
                     # Update X and Y so that Y always contains the lowest values
                     self.update_bee_location(new_x, new_y, new_id )
-                    if if_return_results:
-                        self.add_to_pool([new_x], [new_y], new_id)
                 for i in range(self.colony_size):
                     idxs = np.random.choice(self.colony_size, size=4, replace=False) 
                     new_x = self.x[idxs[0]] + self.x[idxs[1]] - self.x[idxs[2]] - self.x[idxs[3]]
@@ -292,24 +311,20 @@ class GA_ABC():
                     self.global_structure_index += 1 
                     idxs = f"{idxs[0]}_{idxs[1]}_{idxs[2]}_{idxs[3]}"
                     new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_ol_{i}_from_{idxs}'
-                    new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory )
+                    new_x, new_y, atoms = self.calc_new_candiate( new_x, new_id , self.output_directory)
                     save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database )
                     # Update X and Y
                     self.update_bee_location(new_x, new_y, new_id )
-                    if if_return_results:
-                        self.add_to_pool([new_x], [new_y], new_id)
                 for i in range(self.colony_size):
                     if self.trial[i] >= self.limit:
                         self.global_structure_index += 1
                         new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_sc_{i}'
-                        self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)
-                        self.x[i], self.y[i] , atoms = self.func(self.x[i], new_id , self.output_directory )
+                        self.x[i] = lo + (hi-lo)*np.random.rand(self.bounds_dimension)                       
+                        self.x[i], self.y[i] , atoms = self.calc_new_candiate( self.x[i], new_id , self.output_directory)
                         save_structure_to_db(atoms, self.x[i], self.y[i], new_id, self.output_database )
                         self.trial[i] = 0
                         # Update X and Y
                         self.update_bee_location(self.x[i], self.y[i], new_id )
-                        if if_return_results:
-                            self.add_to_pool( [self.x[i]], [self.y[i]], new_id )
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:  
@@ -339,12 +354,10 @@ class GA_ABC():
                     
                 if self.if_clip_candidate:
                     new_x = np.clip(new_x, self.bounds[:,0], self.bounds[:,1])
-                new_x, new_y, atoms = self.func( new_x , new_id, self.output_directory )
+                new_x, new_y, atoms = self.calc_new_candiate( new_x, new_id , self.output_directory )
                 save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database )
                 # Update X and Y so that Y always contains the lowest values
                 self.update_bee_location(new_x, new_y, new_id )
-                if if_return_results:
-                    self.add_to_pool([new_x], [new_y], new_id)
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:  
@@ -359,14 +372,10 @@ class GA_ABC():
         # Approach 3: native GA
         elif self.apply_algorithm == 'GA_native':
             for it in range(1, self.max_iteration+1):
+                # Selection one of them, or use both
                 new_xs, new_ys, new_ids = self._ga_step( it, 1 )
-                if if_return_results:
-                    self.add_to_pool(new_xs, new_ys, new_ids)
-                
-                new_xs, new_ys, new_ids = self._ga_step( it, -1 )
-                if if_return_results:
-                    self.add_to_pool(new_xs, new_ys, new_ids)
-                    
+                new_xs, new_ys, new_ids = self._ga_step( it, -1 ) 
+   
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
@@ -380,24 +389,20 @@ class GA_ABC():
         # Approach 4: Hybrid ABC + GA 
         elif self.apply_algorithm == 'ABC_GA':
             for it in range(1, self.max_iteration+1):
-                print( 'it: ', it )
+                #print( 'it: ', it )
                 # Dynamic employed phase with GA. 
                 num_of_EM = int( np.amax( (1, self.get_best_ratio()*self.colony_size/2 ) ) )
                 for i in range(num_of_EM):
                     self.global_structure_index += 1
                     new_x, new_id = self._neighbor_search(-1)
                     new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_em_{i}_from_{new_id}'
-                    new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory )
+                    new_x, new_y, atoms = self.calc_new_candiate( new_x, new_id , self.output_directory )    
                     save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database )
                     self.update_bee_location(new_x, new_y, new_id )
-                    if if_return_results:
-                        self.add_to_pool([new_x], [new_y], new_id) 
                         
                 # GA step
                 if it % self.ga_interval == 0:
                     new_xs, new_ys, new_ids = self._ga_step( it, 1 )
-                    if if_return_results:
-                        self.add_to_pool(new_xs, new_ys, new_ids)
                         
                 # Dynamic onlooker phase with GA. 
                 # ABC/best/2 strategy: DOI: 10.1016/j.ipl.2011.06.002 
@@ -410,17 +415,13 @@ class GA_ABC():
                     self.global_structure_index += 1 
                     idxs = f"{idxs[0]}_{idxs[1]}_{idxs[2]}_{idxs[3]}"
                     new_id = self.output_header + f"{self.global_structure_index:06d}" + f'_round_{it}_ol_{i}_from_{idxs}'
-                    new_x, new_y, atoms = self.func(new_x, new_id , self.output_directory )
+                    new_x, new_y, atoms = self.calc_new_candiate( new_x, new_id , self.output_directory )   
                     save_structure_to_db(atoms, new_x, new_y, new_id, self.output_database )
                     self.update_bee_location(new_x, new_y, new_id )
-                    if if_return_results:
-                        self.add_to_pool([new_x], [new_y], new_id)
                             
                 # GA step
                 if it % self.ga_interval == 0:
                     new_xs, new_ys, new_ids = self._ga_step( it, -1 )
-                    if if_return_results:
-                        self.add_to_pool(new_xs, new_ys, new_ids)
 
                 # Dynamic scout phase with GA
                 # Higher threshold when global is improving fast. Otherwise lower to explore more than exploiate.
@@ -436,22 +437,19 @@ class GA_ABC():
                             new_id += '_from_GM'
                         else:
                             new_x = lo + (hi-lo)*np.random.rand(self.bounds_dimension)  # Random
-                        self.x[i], self.y[i] , atoms = self.func(new_x, new_id , self.output_directory )
+                        self.x[i], self.y[i] , atoms = self.calc_new_candiate( new_x, new_id , self.output_directory )   
                         save_structure_to_db(atoms, self.x[i], self.y[i], new_id, self.output_database )
                         self.trial[i] = 0
                         #self.update_bee_location(self.x[i], self.y[i], new_id )
                         self.best_trial += 1 
-                        
-                        if if_return_results:
-                            self.add_to_pool( [self.x[i]], [self.y[i]], new_id )
                     
                 if print_interval is not None: 
                     if it == 1 or it % print_interval == 0:
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print(f'Dynamic info at End of Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} performed to find best_Y={self.best_y:16.6} Life={self.best_trial:5d} Total_size={self.global_structure_index:5d} Generate_size={self.global_structure_index-self.previous_pool_size:5d} with current Ratio={np.round(self.get_best_ratio(),2)}')
-                        print( f'Bee values : {it:5d}', ' '.join(list(self.y.astype('str'))) )
+                        print( f'Dynamic info at End of Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} performed to find best_Y={self.best_y:16.6} Life={self.best_trial:5d} Total_size={self.global_structure_index:5d} Generate_size={self.global_structure_index-self.previous_pool_size:5d} with current Ratio={np.round(self.get_best_ratio(),2)}')
+                        #print( f'Bee values : {it:5d}', ' '.join(list(self.y.astype('str'))) )
                 if self.early_stop(self.early_stop_parameter):
                     break
                 

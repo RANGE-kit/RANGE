@@ -43,7 +43,6 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
                         input_constraint_type, input_constraint_value,
                         #pbc_box=(22.90076, 23.00272, 31.95000),
                         )
-cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
 print( "Step 2: Setting calculator" )
@@ -52,7 +51,7 @@ coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse
                             coarse_calc_step=20, coarse_calc_fmax=10, coarse_calc_constraint=None)
 
 # for ASE
-ase_calculator = XTB(method="GFN2-xTB", max_iterations=1000, electronic_temperature=2000 ) 
+ase_calculator = XTB(method="GFN2-xTB", max_iterations=100000, electronic_temperature=2000 ) 
 geo_opt_parameter = dict(fmax=0.02, steps=500)
 computation = energy_computation(templates = cluster_template, 
                                  go_conversion_rule = cluster_conversion_rule, 
@@ -85,11 +84,11 @@ computation = energy_computation(templates = cluster_template,
 output_folder_name = 'results'
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
-                      colony_size=10, limit=30, max_iteration=5, initial_population_scaler=5,
+                      colony_size=10, limit=30, max_iteration=5, initial_population_scaler=2,
                       ga_interval=2, ga_parents=5, mutate_rate=0.5, mutat_sigma=0.03,
                       output_directory = output_folder_name,
                       # Restart option
-                      restart_from_pool = 'structure_pool.db',
+                      #restart_from_pool = 'structure_pool.db',
                       apply_algorithm = 'ABC_GA',
                       )
 all_x, all_y, all_name = optimization.run(print_interval=1, if_return_results=True )

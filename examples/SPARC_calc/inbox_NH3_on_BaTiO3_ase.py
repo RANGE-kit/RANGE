@@ -36,7 +36,6 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
                         pbc_box=(20.26028, 20.26028, 50), 
                         pbc_applied = (True, True, False),
                         )
-cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
 print( "Step 2: Setting calculator" )

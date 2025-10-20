@@ -192,9 +192,9 @@ def print_code_info(print_location):
                                            
 RANGE: a Robust Adaptive Nature-inspired Global Explorer of potential energy surfaces
 
-Please cite: https://doi.org/10.1063/5.0288910
+Please cite: Difan Zhang, Małgorzata Z. Makoś, Roger Rousseau, Vassiliki-Alexandra Glezakou; RANGE: A robust adaptive nature-inspired global explorer of potential energy surfaces. J. Chem. Phys. 21 October 2025; 163 (15): 152501. https://doi.org/10.1063/5.0288910
 
-For any questions, please contact:
+For any questions, please contact us:
     Difan Zhang, Oak Ridge National Laboratory, USA, zhangd2@ornl.gov
     Vassiliki-Alexandra Glezakou, Oak Ridge National Laboratory, USA, gleazakouva@ornl.gov
 

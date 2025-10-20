@@ -104,7 +104,6 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
                         # pbc_box=(22.90076, 23.00272, 31.95000),  # Use this to consider PBC structures
                         # pbc_applied=(True,True,True) # Use this to consider no-box (pbc_box is not assigned) or Dirichlet-BC (pbc_box is assigned but False appears here)
                         )
-cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()  # Generate modeling setting
 
 
@@ -175,6 +174,6 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       if_clip_candidate = True,                     # Clip the generated candidates (default).
                       early_stop_parameter = None,                  # Early stop using key: 'Max_candidate', 'Max_ratio', or 'Max_lifetime'. Default is None (no early stop)
                       )
-optimization.run(print_interval=1)  # Start running. Print information with given frequency. 
+optimization.run(print_interval=1, if_return_results=False)  # Start running. Print information with given frequency. Ignore log and return output history
 
 print( "Step 4: See results: use analysis script" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.

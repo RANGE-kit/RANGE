@@ -48,7 +48,6 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
                         input_constraint_type, input_constraint_value,
                         pbc_box=(20.26028, 20.26028, 32.13928), # For BaTiO3 slab
                         )
-cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
 print( "Step 2: Setting calculator" )

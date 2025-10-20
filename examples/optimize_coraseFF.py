@@ -18,7 +18,6 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
                         input_constraint_type, input_constraint_value,
                         #pbc_box=(22.90076, 23.00272, 31.95000),
                         )
-cluster.init_molelcules()
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
 coarse_calc = RigidLJQ_calculator(cluster_template, charge=0, epsilon='UFF', sigma='UFF', cutoff=10)
