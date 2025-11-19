@@ -151,7 +151,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
     calculator = calculator_command_line ,
     calculator_type = 'external',
     geo_opt_para = geo_opt_control_line ,
-We currently provided external examples for LAMMPS, GROMCAS, xTB, CP2K, ORCA, Gaussian.
+We currently provided external examples for LAMMPS, GROMCAS, xTB, DFTB+, CP2K, ORCA, Gaussian, SPARC.
 """
 
 # Now we know what structures we are making and how to compute their energies. We can put together and run the algorithm to find good structures
