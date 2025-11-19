@@ -12,24 +12,24 @@ Driver = GeometryOptimization {
 
 Hamiltonian = DFTB {
   Scc = Yes
-  SlaterKosterFiles {
-    O-O = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/O-O.skf"
-    O-H = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/O-H.skf"
-    H-O = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/H-O.skf"
-    H-H = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/H-H.skf"
+  MaxSccIterations = 200
+  SccTolerance = 1E-4
+  Filling = Fermi { Temperature = 40  }
+
+  SlaterKosterFiles = Type2FileNames {
+    Prefix = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/"
+    Separator = "-"
+    Suffix = ".skf"
   }
   MaxAngularMomentum {
+    C = "p"
     O = "p"
     H = "s"
   }
 }
 
 Options {}
+Analysis {  CalculateForces = Yes }
+ParserOptions {  ParserVersion = 12 }
+Parallel {  UseOmpThreads = Yes }
 
-Analysis {
-  CalculateForces = Yes
-}
-
-ParserOptions {
-  ParserVersion = 12
-}
