@@ -29,7 +29,7 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input to assign the XYZ structure files
-water = '../Water.xyz'
+water = '../xyz_structures/Water.xyz'
 input_molecules = [water]#, co2]
 input_num_of_molecules = [3]#, 1]
 input_constraint_type = [ 'in_box' ]
@@ -48,7 +48,7 @@ coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse
 # Do not change the input part name "{input_script}" or name of output log "job.log". They are tags for the code.
 orca_exe_path = '/ccsopen/home/d2j/software/ORCA/orca_6_0_1_linux_x86-64_shared_openmpi416/orca'
 calculator_command_line = orca_exe_path + "  {input_script} > job.log "
-geo_opt_control_line = dict(method='ORCA', input='input_orca_template') # This input will be your gaussian input script
+geo_opt_control_line = dict(method='ORCA', input='input_orca_template') # This input will be your input script
 
 # Put all together for my calculation part
 computation = energy_computation(templates = cluster_template,      # From previous definitions

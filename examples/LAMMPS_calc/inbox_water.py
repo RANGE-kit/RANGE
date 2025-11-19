@@ -29,7 +29,7 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input to assign the XYZ structure files
-water = '../Water.xyz'
+water = '../xyz_structures/Water.xyz'
 input_molecules = [water]#, co2]
 input_num_of_molecules = [3]#, 1]
 input_constraint_type = [ 'in_box' ]

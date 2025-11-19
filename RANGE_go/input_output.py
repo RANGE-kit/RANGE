@@ -114,7 +114,8 @@ def convert_xyz_to_gro(input_xyz, output_gro):
 
 def save_energy_summary(output_file='energy_summary.log', 
                         db_path='structure_pool.db', 
-                        directory_path='results'):
+                        directory_path='results',
+                        write_sorted_xyz=False):
     # Search data
     if os.path.exists( db_path ): # Method 1: use .db
         vec, energy, name, previous_size = read_structure_from_db( db_path, 'all', None )
@@ -162,11 +163,15 @@ def save_energy_summary(output_file='energy_summary.log',
     print(gm_id, ' has GM with energy:', ranked_energies[0])
     if use_source == 'database':
         db = connect(db_path)
+        sorted_traj = []
         for row in db.select():
+            atoms = row.toatoms()
+            sorted_traj.append( atoms )
             if row.data.get("compute_name") == gm_id:
-                atoms = row.toatoms()
                 write('best.xyz', atoms)
-                break
+        if write_sorted_xyz:
+            sorted_traj = [ sorted_traj[i] for i in sorted_idx]
+            write( db_path[:-3]+'_sorted.xyz', sorted_traj )
     elif use_source == 'directory':
         ##dir_path = os.path.join(directory_path,gm_id)
         shutil.copyfile( os.path.join(gm_id, 'final.xyz') , 'best.xyz' )   

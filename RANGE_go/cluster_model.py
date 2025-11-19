@@ -128,7 +128,7 @@ class cluster_model:
                     box_inner_hi = box_size[9: ] - box_size[:3]
                     conversion_rule_para = ('in_box_out', tuple(box_inner_lo), tuple(box_inner_hi) )
                 else:
-                    raise ValueError('Number of parameters should be 6 or 12')
+                    raise ValueError(f'Number of parameters should be 6 or 12. Current we have {len( self.constraint_value[n] )} for {self.constraint_value[n]}' )
                 
             elif self.constraint_type[n] == 'in_sphere_shell':
                 """

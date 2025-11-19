@@ -646,6 +646,36 @@ class energy_computation:
             if self.save_output_level == 'Full':
                 shutil.copyfile( f'{final_xyz}' , 'final.xyz' )
             atoms = read(f'{final_xyz}')
+            
+        elif geo_opt_para_line['method'] == 'DFTB+':
+            if 'input' in geo_opt_para_line: # Check if input is ready
+                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
+                    calc_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
+                    calc_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError('DFTB+ input (dftb_in.hsd) is not found from key path')  
+                # Run 
+                shutil.copyfile( start_xyz , 'data-DFTBplus-initial.xyz' )
+                shutil.copyfile( calc_input , 'dftb_in.hsd' )
+                #calculator_command_lines = calculator_command_lines.replace('{input_script}', 'input-ORCA')
+                try:
+                    result = subprocess.run(calculator_command_lines, 
+                                            shell=True, check=False, 
+                                            capture_output=True, text=True
+                                            )
+                    # Now get the energy 
+                    with open('detailed.out','r') as f1:
+                        energy = [line.split() for line in f1.readlines() if "Total energy:" in line ]
+                    energy = float(energy[-1][-2]) # Value is the 2nd-to-last value, unit=eV
+                    # Get the final xyz 
+                    atoms = read( 'data-out.xyz' )
+                except subprocess.CalledProcessError as e:
+                    print( 'ORCA Error: ', job_directory , e.stderr)
+                    energy = 1e7
+                    atoms = read(start_xyz)
+            else:
+                raise NameError('DFTB+ input is not provided by input key')            
                 
         elif geo_opt_para_line['method'] == 'CP2K':
             if 'input' in geo_opt_para_line: # Check if CP2K input is ready
@@ -724,7 +754,7 @@ class energy_computation:
                 raise NameError('Gaussian input is not provided by input key geo_opt_para_line')
             
         elif geo_opt_para_line['method'] == 'ORCA':
-            if 'input' in geo_opt_para_line: # Check if CP2K input is ready
+            if 'input' in geo_opt_para_line: # Check if input is ready
                 if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
                     ORCA_input = geo_opt_para_line['input']
                 elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
@@ -782,6 +812,8 @@ class energy_computation:
                     atoms = read(start_xyz)
                     
         elif geo_opt_para_line['method'] == 'GROMACS':
+            raise ValueError('GROMACS is disabled due to compatibility issue. Will reopen in further edition')
+            """
             if 'input' in geo_opt_para_line: # Check if GMX input is ready
                 if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
                     GMX_input = geo_opt_para_line['input']
@@ -807,7 +839,8 @@ class energy_computation:
                 except subprocess.CalledProcessError as e:
                     print( 'LAMMPS Error: ', job_directory , e.stderr)
                     energy = 1e7
-                    atoms = read(start_xyz)        
+                    atoms = read(start_xyz)   
+            """     
             
 
         elif geo_opt_para_line['method'] == 'User':  # If a general way from user

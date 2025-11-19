@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from RANGE_go.input_output import save_energy_summary #, save_best_structure
 
 
-results = save_energy_summary(output_file='energy_summary.log', db_path='structure_pool.db', directory_path='results')
+results = save_energy_summary(output_file='energy_summary.log', db_path='structure_pool.db', directory_path='results', write_sorted_xyz=False)
 
 # Plot energy vs appearance and ranked energies
 fig, axs = plt.subplots(1,2,figsize=(8,3),tight_layout=True)

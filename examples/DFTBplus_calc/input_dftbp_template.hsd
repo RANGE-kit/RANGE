@@ -1,0 +1,35 @@
+Geometry = xyzFormat {
+<<< "data-DFTBplus-initial.xyz"
+}
+
+Driver = GeometryOptimization {
+  Optimizer = Rational {}
+  MovedAtoms = 1:-1
+  MaxSteps = 200
+  OutputPrefix = "data-out"
+  Convergence {GradElem = 1E-4}
+}
+
+Hamiltonian = DFTB {
+  Scc = Yes
+  SlaterKosterFiles {
+    O-O = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/O-O.skf"
+    O-H = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/O-H.skf"
+    H-O = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/H-O.skf"
+    H-H = "/global/homes/z/zdf/software/dftbplus-24.1.x86_64-linux/Parameter_files/mio-1-1/H-H.skf"
+  }
+  MaxAngularMomentum {
+    O = "p"
+    H = "s"
+  }
+}
+
+Options {}
+
+Analysis {
+  CalculateForces = Yes
+}
+
+ParserOptions {
+  ParserVersion = 12
+}

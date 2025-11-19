@@ -31,7 +31,7 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
-xyz_path = 'xyz_structures/'
+xyz_path = '../xyz_structures/'
 substrate = os.path.join(xyz_path, 'BaTiO3-cub-7layer-TiO.xyz' )
 adsorb = os.path.join(xyz_path, 'Cu.xyz')
 

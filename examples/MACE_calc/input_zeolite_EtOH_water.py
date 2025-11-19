@@ -23,7 +23,7 @@ print("Step 0: Preparation and user input")
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
-xyz_path = 'xyz_structures/'
+xyz_path = '../xyz_structures/'
 substrate = os.path.join(xyz_path, 'Zeolite.xyz' )
 adsorb1 = os.path.join(xyz_path, 'Ethanol.xyz')
 adsorb2 = os.path.join(xyz_path, 'Water_H+.xyz')
