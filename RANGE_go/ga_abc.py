@@ -279,6 +279,7 @@ class GA_ABC():
     
     # The main loop 
     def run(self, print_interval=None, if_return_results=False):
+        print('Setup ready...')
         self.if_return_results = if_return_results
         start_time = time.time()
 

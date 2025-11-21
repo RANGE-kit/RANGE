@@ -10,6 +10,7 @@ import numpy as np
 
 from ase.io import read
 from ase import Atoms
+from ase import neighborlist as ngbls
 
 import string
 from scipy.spatial import ConvexHull, Delaunay, cKDTree
@@ -78,7 +79,8 @@ class cluster_model:
     # Output: templates (shape= # of molecules in cluster), boundary ( always= 6*templates * tuple of size 2)
     # Output: go_conversion_rule (shape = templates) contains items where spherical condition is used.
     def generate_bounds(self):
-        go_templates, go_boundary, go_conversion_rule = [],[], []
+        go_templates, go_boundary, go_conversion_rule = [], [], []
+        self.internal_connectivity = []
         for n in range(len(self.molecules)):
             # For each molecule, generate its bound ( list of 6 tuples, each tuple is (lo, hi))
             new_mol = self.molecules[n].copy()
@@ -338,4 +340,15 @@ class cluster_model:
             go_boundary        += bound     *self.num_of_molecules[n] # add the boundary condition for each molecule. This will be passed to the algorithm
             go_conversion_rule += [conversion_rule_para] *self.num_of_molecules[n] # if cart coord (empty) or spherical coord (len=3)
             
+            # Connectivity
+            cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
+            ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
+            ngb_list.update(new_mol)
+            connect = ngb_list.get_connectivity_matrix(sparse=False)
+            connect = np.triu(connect, k=1).flatten().tolist() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
+            for _ in range(self.num_of_molecules[n]):
+                self.internal_connectivity.append( connect )
+            #print(self.internal_connectivity)
         return go_templates, np.array(go_boundary), go_conversion_rule
+    
+        

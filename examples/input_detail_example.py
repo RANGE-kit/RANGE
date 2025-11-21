@@ -16,7 +16,7 @@ import os
 
 #from ase.visualize import view
 #from ase.visualize.plot import plot_atoms
-#from ase.io import read, write
+from ase.io import read, write
 
 #from ase.calculators.emt import EMT
 #from tblite.ase import TBLite
@@ -28,7 +28,9 @@ print("Step 0: Preparation and user input")
 # Environment setup
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-# Provide user input to assign the XYZ structure files
+""" ----------------------------------------------------
+Provide user input to assign the XYZ structure files, for example:
+""" 
 water = 'xyz_structures/Water.xyz'
 methane = 'xyz_structures/methane.xyz'
 organic_sub = 'xyz_structures/Substrate.xyz'
@@ -36,14 +38,18 @@ single_atom = 'xyz_structures/Single_atom.xyz'
 slab_surface = 'xyz_structures/Slab_BaTiO3_7layer.xyz'
 copper_13 = 'xyz_structures/Cu13.xyz'
 co2 = 'xyz_structures/CO2.xyz'
-#O_atoms_idx_in_slab = tuple([at.index for at in read(slab_surface) if at.symbol=='O'])
+# Or use ASE atoms
 
-# Provide the number of molecules considered for every type of molecule
+""" ----------------------------------------------------
+Provide the number of molecules considered for every type of molecule
+In this case, we consider 2 CO2 molecules and 5 water molecules
+"""
 input_molecules = [co2, water]
 input_num_of_molecules = [2, 5]
 
-# Provide the constraint types
-'''
+""" ----------------------------------------------------
+Provide the constraint types by:
+
 at_position 
     input parameters: X,Y,Z, (Euler_X, Euler_Y, Euler_Z) 
     All parameters are float type number. 
@@ -92,12 +98,13 @@ replace:
     To replace certains molecules in the substrate by this atom/molecule. The substrate is the first molecule. 
     list of integers indicates the index of available atoms in the substrate to be replaced.
     Example: [1,4,7,9,10,16,19]
-'''
+"""
 input_constraint_type = [ 'in_sphere_shell', 'in_sphere_shell' ]
 input_constraint_value = [ (0,0,0,4,4,4), (0,0,0,5,5,5,0.2) ]
 
-
-# Set the cluster structure and initialize the boundary conditions. All input is defined above.
+""" ----------------------------------------------------
+Set the cluster structure and initialize the boundary conditions. All input is defined above.
+"""
 print( "Step 1: Setting cluster" )
 cluster = cluster_model(input_molecules, input_num_of_molecules, 
                         input_constraint_type, input_constraint_value,
@@ -106,15 +113,19 @@ cluster = cluster_model(input_molecules, input_num_of_molecules,
                         )
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()  # Generate modeling setting
 
+""" ----------------------------------------------------
+Set the way to compute energy once we have the molecular structures.
 
-# Set the way to compute energy once we have the molecular structures. 
+The coarse optimizer uses Lennard Jones force field plus Columb interaction, and it fixes internal degree of freedom (i.e. rigid body)
+By default we use UFF parameter and no atomic charge. No constraint during optimization (e.g. no frozen atom)
+
+Then we need to pick a more accurate way to compute energy: ASE calculator or external code
+
+"""
 print( "Step 2: Setting calculator" )
-# The coarse optimizer uses Lennard Jones force field plus Columb interaction, and it fixes internal degree of freedom (i.e. rigid body)
-# By default we use UFF parameter and no atomic charge. No constraint during optimization (e.g. no frozen atom)
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None )
 
-# Then we need to pick a more accurate way to compute energy
 # We can use ASE calculator python interface
 ase_calculator = XTB(method="GFN2-xTB") #TBLite(method="GFN2-xTB", verbosity=-1) # Use semi-empirical
 #ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda') # Or use MACE force field
@@ -129,7 +140,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
                                  if_coarse_calc = True,             # Do we want to pre-optimize using coarse optimizer before the fine optimizer
                                  coarse_calc_para = coarse_opt_parameter,   # The coarse optimizer setting
                                  save_output_level = 'Full',        # How many output files to save? 'Full' means everything. 'Simple' means less output files are saved.
-                                 if_check_structure_sanity = False, # If check structure for unreasonable bonds after optimization
+                                 check_structure_sanity = None,     # If check structure for unreasonable bonds after optimization. None = only check atom distance. = cluster.internal_connectivity
                                  )
 """
 # We can also use an external software. For example:
@@ -152,19 +163,23 @@ computation = energy_computation(templates = cluster_template,      # # From pre
     calculator_type = 'external',
     geo_opt_para = geo_opt_control_line ,
 We currently provided external examples for LAMMPS, GROMCAS, xTB, DFTB+, CP2K, ORCA, Gaussian, SPARC.
+See example directory for details
 """
 
-# Now we know what structures we are making and how to compute their energies. We can put together and run the algorithm to find good structures
+""" ----------------------------------------------------
+Now we know what structures we are making and how to compute their energies. 
+We can put together and run the algorithm to find good structures
+"""
 output_folder_name = 'results'  # This folder will be created to keep output files.
 print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # From previous definitions
                       colony_size=20,            # The number of bee in ABC algorithm
-                      limit=30,                 # The upper threshold to convert a bee to scout bee
+                      limit=40,                 # The upper threshold to convert a bee to scout bee
                       max_iteration=50,         # The max number of iterations
                       initial_population_scaler=5,# How many initial guess to be made before search?
-                      ga_interval=5,            # The interval iteration to call GA algorithm
-                      ga_parents=5,             # The number of bees to mutate (must be no more than colony_size)
-                      mutate_rate=0.2, mutat_sigma=0.05,            # The mutation factor in GA
+                      ga_interval=2,            # The interval iteration to call GA algorithm
+                      ga_parents=10,             # The number of bees to mutate (must be no more than colony_size)
+                      mutate_rate=0.5, mutat_sigma=0.05,            # The mutation factor in GA
                       output_directory = output_folder_name,        # Save results to this folder
                       output_header = 'compute_',                   # Default computing ID header. 
                       output_database = 'structure_pool.db',        # Default database name. 
@@ -176,4 +191,4 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       )
 optimization.run(print_interval=1, if_return_results=False)  # Start running. Print information with given frequency. Ignore log and return output history
 
-print( "Step 4: See results: use analysis script" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.
+print( "Use example/analysis_output_energy.py to analyze/summarize results, or create your own" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.

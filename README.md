@@ -14,7 +14,7 @@ To install with `pip`, go to the root directory and do:
 ```bash
 pip install .
 ```
-Examples are provided in the "examples" directory.
+Examples are provided in the "examples" directory. "input_detailed_example.py" provides additional explanation of keywords.
 
 ## Acknowledgment
 

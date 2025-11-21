@@ -8,7 +8,9 @@ Created on Wed Jun  4 09:10:17 2025
 # Utility functions
 import numpy as np
 
+from ase import neighborlist as ngbls
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
+
 from scipy.spatial.transform import Rotation 
 #from scipy.spatial.distance import cdist
 
@@ -134,11 +136,29 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     selected_indices = selected_indices[:num_of_candidates]  # To avoid over-adding
     return sorted_idx[selected_indices]
 
-def check_structure_sanity(atoms, energy):
+def check_structure(atoms, energy, mol_template, connect_list):
+    # Always distance check
     dist = atoms.get_all_distances(mic=True, vector=False)
     dist = dist[np.triu_indices(dist.shape[0], k=1)] # only upper triangle without diagonal values
     if np.amin(dist)<0.7: # bad distance. collapse.
         energy = 2E9 # bad structure
+    elif connect_list is not None:
+        index_head, index_tail = -1,-1
+        for n, molecule in enumerate(mol_template):
+            index_head = index_tail +1  # point to the first atom in mol
+            index_tail = index_head +len(molecule) -1 # point to the last atom in mol
+            new_mol = atoms[ index_head: index_tail+1 ]
+            # Connectivity of this part
+            if index_tail>index_head: # no need for a single atom part
+                cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
+                ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
+                ngb_list.update(new_mol)
+                connect = ngb_list.get_connectivity_matrix(sparse=False)
+                connect = np.triu(connect, k=1).flatten() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
+                # Compare
+                if not np.array_equal(connect, connect_list[n]):
+                    energy = 2E8
+                    break
     return energy
     
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom

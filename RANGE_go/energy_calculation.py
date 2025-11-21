@@ -22,8 +22,8 @@ import shutil
 import time
 
 from RANGE_go.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
-from RANGE_go.utility import check_structure_sanity
-from RANGE_go.input_output import get_CP2K_run_info, convert_xyz_to_lmps, convert_xyz_to_gro
+from RANGE_go.utility import check_structure
+from RANGE_go.input_output import get_CP2K_run_info, convert_xyz_to_lmps #, convert_xyz_to_gro
 
 
 """
@@ -204,7 +204,7 @@ class energy_computation:
                  calculator=None, calculator_type='structural', geo_opt_para=None, 
                  if_coarse_calc=False, coarse_calc_para=None,
                  save_output_level = 'Simple',
-                 if_check_structure_sanity = True,
+                 check_structure_sanity = None,
                  ):
         """
         if calc_type == 'internal', use ASE calculator. Then calculator = ASE calculator.
@@ -216,7 +216,7 @@ class energy_computation:
         self.calculator_type = calculator_type
         self.geo_opt_para = geo_opt_para
         self.save_output_level = save_output_level
-        self.if_check_structure_sanity = if_check_structure_sanity
+        self.check_structure_sanity = check_structure_sanity
         
         self.if_coarse_calc = if_coarse_calc
         if self.if_coarse_calc:
@@ -545,8 +545,8 @@ class energy_computation:
         else:
             raise ValueError('calculator_type is not supported')
 
-        if self.if_check_structure_sanity:
-            energy = check_structure_sanity(atoms, energy)
+        # Final check on structure for unreasonable geometry
+        energy = check_structure(atoms, energy, self.templates, self.check_structure_sanity)
             
         # Vec, structure and energy are all finalized now. They will be saved in db file.
         if self.save_output_level == 'Full':
