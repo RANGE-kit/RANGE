@@ -140,7 +140,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
                                  if_coarse_calc = True,             # Do we want to pre-optimize using coarse optimizer before the fine optimizer
                                  coarse_calc_para = coarse_opt_parameter,   # The coarse optimizer setting
                                  save_output_level = 'Full',        # How many output files to save? 'Full' means everything. 'Simple' means less output files are saved.
-                                 check_structure_sanity = None,     # If check structure for unreasonable bonds after optimization. None = only check atom distance. = cluster.internal_connectivity
+                                 check_structure_sanity = None,     # Check unreasonable geometry after optimization. None = only check atom distance. tuple (cluster, [1,2]) = check connectivity of molecule type 1 and 2
                                  )
 """
 # We can also use an external software. For example:

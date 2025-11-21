@@ -8,13 +8,80 @@ Publication: Difan Zhang, Małgorzata Z. Makoś, Roger Rousseau, Vassiliki-Alexa
 
 ## Installation
 
-The Atomic Simulation Environment (ASE) package is required for certain structural manipulation and to use the ASE calculator.
+The Atomic Simulation Environment (ASE) package is required for certain structural manipulation and to use the ASE calculator. ASE installation can be found: https://ase-lib.org/install.html
 
-To install with `pip`, go to the root directory and do: 
+To install RANGE (with `pip`), download the code, then go to the root directory and do: 
 ```bash
 pip install .
 ```
-Examples are provided in the "examples" directory. "input_detailed_example.py" provides additional explanation of keywords.
+
+## Usage
+
+Examples are provided in the "examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. Examples using different calculators are provided in various folders.
+
+To breifly summarize, here are the minimal steps to setup a RANGE search using MACE ASE calculator to build a copper cluster on BaTiO3 surface:
+
+1. Load necessary library.
+```bash
+from RANGE_go.ga_abc import GA_ABC
+from RANGE_go.cluster_model import cluster_model
+from RANGE_go.energy_calculation import energy_computation
+
+from mace.calculators import mace_mp
+```
+
+2. Setup the modeling system.
+```bash
+# Here we consider a BaTiO3 substrate and 12 copper atoms in the modeling system
+substrate = 'BaTiO3-cub-7layer-TiO.xyz'
+copper = 'Cu.xyz'
+input_molecules = [substrate, copper]  
+input_num_of_molecules = [1,12]  
+# We put BaTiO3 at its current position, and put 12 Cu atoms into a box region
+input_constraint_type = ['at_position','in_box']  
+input_constraint_value = [(0,0,0,0,0,0),(-2.5,-2.5,7.5, 2.5,2.5,12.5) ]  # Define the BaTiO3 position, and box position
+# Then put everything together into a "cluster" class. The modeling system considers PBC.
+cluster = cluster_model(input_molecules, input_num_of_molecules, input_constraint_type, input_constraint_value,
+                        pbc_box=(20.26028, 20.26028, 32.13928),  # For BaTiO3 slab's PBC
+                        )
+# Generate modeling system information for further use
+cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()  
+```
+
+3. Setup the calculation method.
+```bash
+# We setup a built-in calculator for coarse, pre-optimization to accelerate geometry optimization and avoid bad initial structures.
+coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
+                            coarse_calc_step=20, coarse_calc_fmax=10)
+# For fine optimization, we use MACE model via its ASE interface
+model_path = 'mace-mpa-0-medium.model'
+ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", device='cuda')
+geo_opt_parameter = dict(fmax=0.05, steps=100)
+# Put everything together to setup the calculation method
+computation = energy_computation(templates = cluster_template, 
+                                 go_conversion_rule = cluster_conversion_rule, 
+                                 calculator = ase_calculator,
+                                 calculator_type = 'ase', 
+                                 geo_opt_para = geo_opt_parameter, 
+                                 if_coarse_calc = True, 
+                                 coarse_calc_para = coarse_opt_parameter,
+                                 save_output_level = 'Simple',
+                                 )
+```
+
+4. Setup the parameters for algorithm, and run it.
+```bash
+# We initialize the search by 20 bees, with 10 GA bee mutation in every iteration. 
+optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,
+                      colony_size=20, limit=40, max_iteration=10, initial_population_scaler=2,
+                      ga_interval=1, ga_parents=10, mutate_rate=0.5, mutat_sigma=0.05,
+                      )
+# Now start the search, and print information along the way
+optimization.run(print_interval=1)
+```
+
+5. Analysis and summary.
+The generated structures are saved into "structure_pool.db" by default. The script "analysis_output_energy.py" can analyze the results, generate a summary log, and a XYZ trajectory with energy sorted.
 
 ## Acknowledgment
 

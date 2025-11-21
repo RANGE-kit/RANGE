@@ -136,27 +136,30 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     selected_indices = selected_indices[:num_of_candidates]  # To avoid over-adding
     return sorted_idx[selected_indices]
 
-def check_structure(atoms, energy, mol_template, connect_list):
+def check_structure(atoms, energy, input_tuple):
     # Always distance check
     dist = atoms.get_all_distances(mic=True, vector=False)
     dist = dist[np.triu_indices(dist.shape[0], k=1)] # only upper triangle without diagonal values
     if np.amin(dist)<0.7: # bad distance. collapse.
         energy = 2E9 # bad structure
-    elif connect_list is not None:
+    elif input_tuple is not None:
+        # input_tuple must be a tuple of size 2: 0=cluster, 1=a list of molecule id
+        cluster = input_tuple[0] # cluster class to get templates, internal_connectivity and global_molecule_index
+        explore_mol_index = input_tuple[1] # The molecules to check connectivity
         index_head, index_tail = -1,-1
-        for n, molecule in enumerate(mol_template):
+        for n, molecule in enumerate(cluster.templates):
             index_head = index_tail +1  # point to the first atom in mol
             index_tail = index_head +len(molecule) -1 # point to the last atom in mol
-            new_mol = atoms[ index_head: index_tail+1 ]
             # Connectivity of this part
-            if index_tail>index_head: # no need for a single atom part
+            if cluster.global_molecule_index[n] in explore_mol_index and index_tail>index_head:  # no need for a single atom part
+                connect_ref = cluster.internal_connectivity[n]
+                new_mol = atoms[ index_head: index_tail+1 ]
                 cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
                 ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
                 ngb_list.update(new_mol)
                 connect = ngb_list.get_connectivity_matrix(sparse=False)
-                connect = np.triu(connect, k=1).flatten() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
-                # Compare
-                if not np.array_equal(connect, connect_list[n]):
+                #connect = np.triu(connect, k=1).flatten() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
+                if not np.array_equal(connect, connect_ref):
                     energy = 2E8
                     break
     return energy

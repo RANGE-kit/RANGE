@@ -546,7 +546,7 @@ class energy_computation:
             raise ValueError('calculator_type is not supported')
 
         # Final check on structure for unreasonable geometry
-        energy = check_structure(atoms, energy, self.templates, self.check_structure_sanity)
+        energy = check_structure(atoms, energy, self.check_structure_sanity)
             
         # Vec, structure and energy are all finalized now. They will be saved in db file.
         if self.save_output_level == 'Full':

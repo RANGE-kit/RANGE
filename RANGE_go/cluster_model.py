@@ -80,7 +80,7 @@ class cluster_model:
     # Output: go_conversion_rule (shape = templates) contains items where spherical condition is used.
     def generate_bounds(self):
         go_templates, go_boundary, go_conversion_rule = [], [], []
-        self.internal_connectivity = []
+        self.internal_connectivity, self.global_molecule_index = [],[]
         for n in range(len(self.molecules)):
             # For each molecule, generate its bound ( list of 6 tuples, each tuple is (lo, hi))
             new_mol = self.molecules[n].copy()
@@ -341,14 +341,17 @@ class cluster_model:
             go_conversion_rule += [conversion_rule_para] *self.num_of_molecules[n] # if cart coord (empty) or spherical coord (len=3)
             
             # Connectivity
-            cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
+            cutoffs = [ c for c in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
             ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
             ngb_list.update(new_mol)
             connect = ngb_list.get_connectivity_matrix(sparse=False)
-            connect = np.triu(connect, k=1).flatten().tolist() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
+            #connect = np.triu(connect, k=1).flatten().tolist() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
             for _ in range(self.num_of_molecules[n]):
                 self.internal_connectivity.append( connect )
-            #print(self.internal_connectivity)
+                self.global_molecule_index.append( n )
+        self.templates = go_templates
+        self.boundary = go_boundary
+        self.conversion_rule = go_conversion_rule
         return go_templates, np.array(go_boundary), go_conversion_rule
     
         
