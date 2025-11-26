@@ -10,6 +10,7 @@ import numpy as np
 
 from ase import neighborlist as ngbls
 from ase.units import kJ,mol #Bohr,Rydberg,kJ,kB,fs,Hartree,mol,kcal
+from ase.geometry import find_mic
 
 from scipy.spatial.transform import Rotation 
 #from scipy.spatial.distance import cdist
@@ -163,6 +164,13 @@ def check_structure(atoms, energy, input_tuple):
                     energy = 2E8
                     break
     return energy
+
+def structure_difference(at1, at2, pbc=True):
+    cell = at1.get_cell()
+    diff_raw = at1.positions - at2.positions
+    diff_mic, _ = find_mic(diff_raw, cell, pbc)
+    return diff_mic
+
     
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040
