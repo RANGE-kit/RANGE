@@ -82,8 +82,9 @@ optimization.run(print_interval=1)
 
 5. Analysis and summary.
 
-The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/some_analysis_scripts/ or user-customized scripts. The "analysis_output_energy.py" analyzes the results, generate a summary log, and a XYZ trajectory with energy sorted. The "clean_structure_pool.py" can narrow down structures based on connectivity and/or structure similarity and/or other conditions. The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis.
+The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_scripts/ or user-customized scripts. The "analysis_output_energy.py" analyzes the results, generate a summary log, and a XYZ trajectory with energy sorted. The "clean_structure_pool.py" can narrow down structures based on connectivity and/or structure similarity and/or other conditions. The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis.
 
 ## Acknowledgment
 
 This work is supported by the U.S. Department of Energy, Office of Science, Office of Basic Energy Sciences, Chemical Sciences, Geosciences, and Biosciences Division, Catalysis Science Program, under Grant No. ERKCC96.
+

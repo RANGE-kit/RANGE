@@ -72,8 +72,9 @@ def read_RANGE_input(inp):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input', type=str, default='input_RANGE.py', help='RANGE input')
-parser.add_argument('--group', type=str, default='yes', help='If apply grouping analysis')
+parser.add_argument('--group', type=int, nargs="+", default='-1', help='apply grouping analysis')
 parser.add_argument('--align', type=int, nargs="+", default='0', help='Atom ID to align structure for gas phase modeling')
+parser.add_argument('--shift', type=float, nargs="+", default='0', help='Translate dX dY dZ of structure for surface modeling')
 args = parser.parse_args()
 #print( args )
 
@@ -83,22 +84,35 @@ args = parser.parse_args()
 | Cluster information should agree with generation setting  |
 ------------------------------------------------------------
 """
-# Cluster information. This should be the same as RANGE input
-#if os.path.exists(args.input):
-#    input_molecules, input_num_of_molecules = read_RANGE_input(args.input)
-#else:
-if True:
-    input_molecules = []
-    xyz_path = '../../xyz_structures/'
-    input_molecules.append( os.path.join(xyz_path, 'GrH-44.xyz' ) )
-    input_molecules.append( os.path.join(xyz_path, 'O2.xyz' ) )
+xyz_path = '../'
 
-    input_num_of_molecules = [1,1]
+comp1 = os.path.join(xyz_path, 'mace-opted-box32singlelayer-C3N4-surf-Pt4.xyz' )
+
+#comp2 = os.path.join(xyz_path, 'C3H8-propane.xyz')
+#input_molecules = [ comp1, comp2 ]
+#input_num_of_molecules = [1,1]
+
+#comp2 = os.path.join(xyz_path, 'C3H7.xyz')
+#comp3 = os.path.join(xyz_path, 'H.xyz')
+#input_molecules = [ comp1, comp2, comp3 ]
+#input_num_of_molecules = [1,1,1]
+
+#comp2 = os.path.join(xyz_path, 'C3H6.xyz')
+#comp3 = os.path.join(xyz_path, 'H.xyz')
+#input_molecules = [ comp1, comp2, comp3 ]
+#input_num_of_molecules = [1,1,2]
+
+comp2 = os.path.join(xyz_path, 'C3H6.xyz')
+comp3 = os.path.join(xyz_path, 'H2.xyz')
+input_molecules = [ comp1, comp2, comp3 ]
+input_num_of_molecules = [1,1,1]
 
 # We just need the cluster class to use its functions/vars for the cluster components, so here we just make a fake cluster
 input_constraint_type = [ 'at_position' for n in input_molecules ]
 input_constraint_value = [ () for n in input_molecules ]
-cluster = cluster_model(input_molecules, input_num_of_molecules, input_constraint_type, input_constraint_value)
+cluster = cluster_model(input_molecules, input_num_of_molecules, input_constraint_type, input_constraint_value,
+                        pbc_box=(21.404922 , 24.706836 , 30.27529),
+                        )
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
 """
@@ -107,7 +121,7 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 -----------------------------------------------------------------
 """
 # Here is case-dependent conditions to check structure. Modified based on RANGE_go.utility.check_structure
-check_atom_symbols = [ ['C','H'],['O'] ]  # Use empty list for no-check
+check_atom_symbols = [ ['C','N'],['C','O','H'],['H','O'] ]  # Use empty list for no-check
 
 out = []
 for c,n in zip(check_atom_symbols,input_num_of_molecules):
@@ -118,69 +132,77 @@ db_path = 'structure_pool.db'
 sorted_clean_traj = [] #'structure_pool_sorted_clean.xyz'
 ener, name = [],[]
 
+print( "Start analysis loop" )
 db = connect(db_path)
 for nr, row in enumerate(db.select()):
     if nr%500==0:
         print( nr )
     atoms = row.toatoms() 
-    
-    check_pass = True
-    index_head, index_tail = -1,-1
-    for n, molecule in enumerate(cluster.templates):
-        index_head = index_tail +1  # point to the first atom in mol
-        index_tail = index_head +len(molecule) -1 # point to the last atom in mol
-        new_mol = atoms[ index_head: index_tail+1 ]
+    e = row.data.output_energy
+
+    if e<1e3:
+        check_pass = True
+    else:
+        check_pass = False
+
+    if check_pass:
+        index_head, index_tail = -1,-1
+        for n, molecule in enumerate(cluster.templates):
+            index_head = index_tail +1  # point to the first atom in mol
+            index_tail = index_head +len(molecule) -1 # point to the last atom in mol
+            new_mol = atoms[ index_head: index_tail+1 ]
         
-        if len(check_atom_symbols[n])>0:
-            cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
-            ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
-            ngb_list.update(new_mol)
-            connect = ngb_list.get_connectivity_matrix(sparse=False) # C in the generated structure
-            connect_ref = cluster.internal_connectivity[n] # C in the input structure
+            if len(check_atom_symbols[n])>0:
+                # check these atoms
+                check_atoms_index = [ at.index for at in new_mol if at.symbol in check_atom_symbols[n] ]
+
+                connect_ref = cluster.internal_connectivity[n] # C in the input structure
+                connect_ref = connect_ref[ np.ix_(check_atoms_index, check_atoms_index) ] # these rows and cols
+
+                cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
+                ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
+                ngb_list.update(new_mol)
+                connect = ngb_list.get_connectivity_matrix(sparse=False) # C in the generated structure
+                connect     = connect[ np.ix_(check_atoms_index, check_atoms_index) ] # these rows and cols
             
-            # check these atoms
-            check_atoms_index = [ at.index for at in new_mol if at.symbol in check_atom_symbols[n] ]
-            connect = connect[check_atoms_index][check_atoms_index]
-            connect_ref = connect_ref[check_atoms_index][check_atoms_index]
-            
-            #if np.array_equal(connect, connect_ref):
-            if np.sum(np.abs(connect-connect_ref))!=0:
-                check_pass = False
-                break
+                #if np.array_equal(connect, connect_ref):
+                if np.sum(np.abs(connect-connect_ref))!=0:
+                    check_pass = False
+                    break
                 
     #  Perform geometry re-orientation before analysis, if needed
-    atoms = alignment(atoms, args.align) 
-    
-    """
-    ---------------------------------
-    | Other customized conditions?  |
-    ---------------------------------
-    """
-    
-    pos = atoms.get_positions()
-    c = [ at.index for at in atoms if at.symbol=='C' ]
-    o = [ at.index for at in atoms if at.symbol=='O' ]
-    c = np.mean(pos[c], axis=0)[2]
-    o = pos[o,2]
-    if np.any(o-c<0):
-        check_pass = False
-    """
-    --------------------------------
-    """
-
-    # Final output
     if check_pass:
-        e = row.data.output_energy
+        atoms = alignment(atoms, args.align) 
+    
+        """
+        ---------------------------------
+        | Other customized conditions?  |
+        ---------------------------------
+        """
+        pos = atoms.get_positions()
+        n = [ at.index for at in atoms if at.symbol=='N' ]
+        h = [ at.index for at in atoms if at.symbol=='H' ]
+        pos_n = np.mean(pos[n], axis=0)[2]
+        pos_h = np.mean(pos[h], axis=0)[2]
+        #pos_cu_max = np.amax( pos[cu][:,2] )
+        #pos_cu_min = np.amin( pos[cu][:,2] )
+        if pos_n > pos_h :
+            check_pass = False
+        """
+        --------------------------------
+        """
+
+    if check_pass:
+        # Final output
         m = row.data.compute_name
-        if e<1e3:
-            sorted_clean_traj.append( atoms )
-            ener.append( row.data.output_energy )
-            name.append( row.data.compute_name )
+        sorted_clean_traj.append( atoms )
+        ener.append( row.data.output_energy )
+        name.append( row.data.compute_name )
 
 # sort energy and write
+print( "Sort energy" )
 sorted_idx = np.argsort(ener)
 tags = None
-
 
 """
 --------------------------------------------------------------------------
@@ -188,8 +210,10 @@ tags = None
 --------------------------------------------------------------------------
 """
 # if needed, we can do the similarity analysis to clean more
-if args.group == 'yes': 
-    use_components_index = [0,1]
+if isinstance(args.group, int):
+    args.group = [ args.group ]
+if args.group[0]>=0: 
+    use_components_index = args.group
     use_atoms_index = [] # use these atoms to comparison
     idx_point = 0
     for im, mol in enumerate(cluster_template):
@@ -199,15 +223,15 @@ if args.group == 'yes':
         idx_point += len(mol)
 
     atoms_ref = sorted_clean_traj[ sorted_idx[0] ]
+    atoms_ref = atoms_ref[use_atoms_index] # To reduce comp cost
     dmat_ref = atoms_ref.get_all_distances(mic=True)
     ener_ref = ener[ sorted_idx[0] ]
-
     dmat_tag, ener_tag = [], []
     for n, atoms in enumerate(sorted_clean_traj):
+        atoms = atoms[use_atoms_index]
         dmat = atoms.get_all_distances(mic=True)
         dmat_diff = dmat - dmat_ref
-        dmat_diff = dmat_diff[use_atoms_index][use_atoms_index] # these rows and cols
-        #dmat_tag.append( np.sum(dmat_diff) )
+        #dmat_diff = dmat_diff[np.ix_(use_atoms_index, use_atoms_index)] # these rows and cols
         i, j = np.triu_indices(dmat_diff.shape[0], k=1)
         d = dmat_diff[i,j]
         #dmat_tag.append( np.linalg.norm(d)*np.sign(d.mean()) )
@@ -225,6 +249,7 @@ if args.group == 'yes':
 | FInal write |
 ---------------
 """
+print( "Write output" )
 output_traj, output_ener, output_name = [],[],[]
 write_seprate_lines = 1e9
 with open('energy_summary_sorted_clean.log','w') as f1:
@@ -238,6 +263,8 @@ with open('energy_summary_sorted_clean.log','w') as f1:
             write_seprate_lines = tags[i][0]
         f1.write(line)
         atoms = sorted_clean_traj[i]
+        atoms.translate( args.shift )
+
         atoms.wrap()
         output_traj.append( atoms )
         #output_ener.append( ener[i] )
