@@ -28,7 +28,9 @@ from RANGE_go.cluster_model import cluster_model
 from RANGE_go.energy_calculation import energy_computation
 
 from mace.calculators import mace_mp
+
 from ase.constraints import FixAtoms
+from ase import Atoms
 
 ```
 
@@ -89,7 +91,12 @@ optimization.run(print_interval=1)
 
 5. Analysis and summary.
 
-The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_scripts/ or user-customized scripts. The "analysis_output_energy.py" analyzes the results, generate a summary log, and a XYZ trajectory with energy sorted. The "clean_structure_pool.py" can narrow down structures based on connectivity and/or structure similarity and/or other conditions. The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis. Use/revise as needed.
+    The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_scripts/ or user-customized scripts. The "analysis_output_energy.py" analyzes the results, generate a summary log, and a XYZ trajectory with energy sorted. The "clean_structure_pool.py" can narrow down structures based on connectivity and/or structure similarity and/or other conditions. The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis. Use/revise as needed.
+
+    For analytical equations, see example at examples/Object_equation/simple_equation.py. The code can search the minima and return the explored points for immediate further analysis by:
+```bash
+all_vec, all_V, all_name = opt.run(print_interval=1, if_return_results=True)
+```
 
 ## Acknowledgment
 
