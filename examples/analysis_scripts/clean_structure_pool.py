@@ -17,6 +17,8 @@ from ase.io import read, write
 from ase.db import connect
 from ase import neighborlist as ngbls
 
+from tqdm import tqdm
+
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -88,20 +90,6 @@ xyz_path = '../'
 
 comp1 = os.path.join(xyz_path, 'mace-opted-box32singlelayer-C3N4-surf-Pt4.xyz' )
 
-#comp2 = os.path.join(xyz_path, 'C3H8-propane.xyz')
-#input_molecules = [ comp1, comp2 ]
-#input_num_of_molecules = [1,1]
-
-#comp2 = os.path.join(xyz_path, 'C3H7.xyz')
-#comp3 = os.path.join(xyz_path, 'H.xyz')
-#input_molecules = [ comp1, comp2, comp3 ]
-#input_num_of_molecules = [1,1,1]
-
-#comp2 = os.path.join(xyz_path, 'C3H6.xyz')
-#comp3 = os.path.join(xyz_path, 'H.xyz')
-#input_molecules = [ comp1, comp2, comp3 ]
-#input_num_of_molecules = [1,1,2]
-
 comp2 = os.path.join(xyz_path, 'C3H6.xyz')
 comp3 = os.path.join(xyz_path, 'H2.xyz')
 input_molecules = [ comp1, comp2, comp3 ]
@@ -134,9 +122,8 @@ ener, name = [],[]
 
 print( "Start analysis loop" )
 db = connect(db_path)
-for nr, row in enumerate(db.select()):
-    if nr%500==0:
-        print( nr )
+#for nr, row in enumerate(db.select()):
+for nr, row in tqdm(enumerate(db.select()), total=len(db), desc="Processing items"):
     atoms = row.toatoms() 
     e = row.data.output_energy
 
@@ -152,7 +139,7 @@ for nr, row in enumerate(db.select()):
             index_tail = index_head +len(molecule) -1 # point to the last atom in mol
             new_mol = atoms[ index_head: index_tail+1 ]
         
-            if len(check_atom_symbols[n])>0:
+            if len(check_atom_symbols[n])>0 and len(new_mol)>1:
                 # check these atoms
                 check_atoms_index = [ at.index for at in new_mol if at.symbol in check_atom_symbols[n] ]
 
@@ -180,14 +167,14 @@ for nr, row in enumerate(db.select()):
         ---------------------------------
         """
         pos = atoms.get_positions()
-        n = [ at.index for at in atoms if at.symbol=='N' ]
-        h = [ at.index for at in atoms if at.symbol=='H' ]
-        pos_n = np.mean(pos[n], axis=0)[2]
-        pos_h = np.mean(pos[h], axis=0)[2]
+        #n = [ at.index for at in atoms if at.symbol=='N' ]
+        #h = [ at.index for at in atoms if at.symbol=='H' ]
+        #pos_n = np.mean(pos[n], axis=0)[2]
+        #pos_h = np.mean(pos[h], axis=0)[2]
         #pos_cu_max = np.amax( pos[cu][:,2] )
         #pos_cu_min = np.amin( pos[cu][:,2] )
-        if pos_n > pos_h :
-            check_pass = False
+        #if pos_n > pos_h :
+        #    check_pass = False
         """
         --------------------------------
         """
@@ -259,7 +246,7 @@ with open('energy_summary_sorted_clean.log','w') as f1:
         else:
             line = f"{ii:8d} {ener[i]:16.10g} {tags[i][0]:8.4g} {tags[i][1]:16.10g}   {name[i]}\n"
             if tags[i][0] != write_seprate_lines:
-                line = "v"*20 + '\n' + line
+                line = "="*20 + '\n' + line
             write_seprate_lines = tags[i][0]
         f1.write(line)
         atoms = sorted_clean_traj[i]
