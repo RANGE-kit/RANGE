@@ -30,7 +30,6 @@ from RANGE_go.energy_calculation import energy_computation
 from mace.calculators import mace_mp
 
 from ase.constraints import FixAtoms
-from ase import Atoms
 
 ```
 
@@ -55,13 +54,13 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 3. Setup the calculation method.
 ```bash
 # If needed, we freeze some atoms to accelerate calculations. This is here just to show the option and it not always needed.
-cluster_atoms = Atoms()
-for at in cluster_template:
-    cluster_atoms += at
-ase_constraint = FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'Cu'])
+# More control on contraints can be found in examples/MACE_calc/input_Nd_solvation.py
+ase_constraint = FixAtoms(indices=[at.index for at in cluster.system_atoms if at.symbol != 'Cu'])
+
 # We setup a built-in calculator for coarse, pre-optimization to accelerate geometry optimization and avoid bad initial structures.
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=20, coarse_calc_fmax=10, coarse_calc_constraint=ase_constraint)
+                            
 # For fine optimization, we use MACE model via its ASE interface
 model_path = 'mace-mpa-0-medium.model' # or your own path to the model
 ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", device='cuda')
@@ -91,11 +90,24 @@ optimization.run(print_interval=1)
 
 5. Analysis and summary.
 
-    The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_scripts/ or user-customized scripts. The "analysis_output_energy.py" analyzes the results, generate a summary log, and a XYZ trajectory with energy sorted. The "clean_structure_pool.py" can narrow down structures based on connectivity and/or structure similarity and/or other conditions. The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis. Use/revise as needed.
+    The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_scripts/ or user-customized scripts. Use/revise as needed.
+```bash
+# analysis_output_energy.py directly analyzes the results (from db file if exsits, otherwise the result folder), generates a summary log and energy profile figure, 
+#    and a XYZ trajectory with energy sorted if needed. To use, under the same path of the RANGE search job:
+python analysis_output_energy.py  # No args
+
+# The "clean_structure_pool.py" provides a more detailed structure analysis than analysis_output_energy.py
+#   It reads the output db file, and furhter narrows down structures based on connectivity and/or structure similarity and/or other conditions. To use:
+python  clean_structure_pool.py   # +args (See first section of the script)
+
+# The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis. 
+python  capture_snapshots_from_frameID.py   # +args (See first section of the script)
+
+```
 
     For analytical equations, see example at examples/Object_equation/simple_equation.py. The code can search the minima and return the explored points for immediate further analysis by:
 ```bash
-all_vec, all_V, all_name = opt.run(print_interval=1, if_return_results=True)
+all_X_vec, all_Y, all_name = opt.run(print_interval=1, if_return_results=True)
 ```
 
 ## Acknowledgment

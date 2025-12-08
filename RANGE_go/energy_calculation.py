@@ -488,9 +488,15 @@ class energy_computation:
                 dyn = BFGS(atoms, logfile=None)
             else:
                 raise ValueError('Saving output level keyword is not supported')
+                
             if self.coarse_calc_constraint is not None:
                 atoms.set_constraint( self.coarse_calc_constraint )
-            dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
+                
+            try:
+                dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
+            except:
+                print(computing_id, 'Coarse optimization was not successful. Skipped to fine optimization.')
+                
             if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
                 pass
             elif self.calculator_type != 'structural':
@@ -519,8 +525,16 @@ class energy_computation:
                     raise ValueError('Geo Opt cannot be done due to missing parameter fmax or steps' )
                 if 'ase_constraint' in self.geo_opt_para:
                     atoms.set_constraint( self.geo_opt_para['ase_constraint'] )
+                    if 'Dual_stage_optimization' in self.geo_opt_para: 
+                        dual_opt = self.geo_opt_para['Dual_stage_optimization']
+                    else:
+                        dual_opt = None
                 try:                    
                     dyn.run( fmax=fmax, steps=steps )
+                    if dual_opt is not None:
+                        atoms.set_constraint()  # Remove constraints
+                        dual_fmax, dual_steps = dual_opt['fmax'], dual_opt['steps'] #, dual_opt['ase_constraint']
+                        dyn.run( fmax=dual_fmax, steps=dual_steps )
                     energy = atoms.get_potential_energy()
                     vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
                 except:

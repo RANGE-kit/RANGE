@@ -119,17 +119,26 @@ Set the way to compute energy once we have the molecular structures.
 The coarse optimizer uses Lennard Jones force field plus Columb interaction, and it fixes internal degree of freedom (i.e. rigid body)
 By default we use UFF parameter and no atomic charge. No constraint during optimization (e.g. no frozen atom)
 
-Then we need to pick a more accurate way to compute energy: ASE calculator or external code
+Constraints can be introduced by using "from ase.constraints import FixAtoms, FixBondLengths". There is also a built-in function to constraint bonds based on input molecules, e.g.:
+atom_constraint = FixAtoms(indices=[at.index for at in cluster.system_atoms if at.symbol == 'O'])
+bond_constraint = FixBondLengths( cluster.compute_system_bond_pair() )
+Do not use bond constraints in the coarse optimizer since it already freezes internal bonds in the molecules. Use bond constraints may return "Not converge" error from ASE.
 
+Then we need to pick a more accurate way to compute energy: ASE calculator or external code. For ASE calculator, constraint can be introduced by ase_constraint=XXX.
+
+For ASE calculator, it is also to apply a dual stage optimization, where the first stage applies constrains and the second stage removes all constraints. To use this, use:
+    geo_opt_parameter = dict(fmax=0.2, steps=20, ase_constraint=XXXX (some constraints), Dual_stage_optimization=dict(fmax=0.05, steps=20) )
+Dual stage optimization is only active when ase_constraint is active in geo_opt_parameter.
 """
 print( "Step 2: Setting calculator" )
+
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=None )
 
 # We can use ASE calculator python interface
 ase_calculator = XTB(method="GFN2-xTB") #TBLite(method="GFN2-xTB", verbosity=-1) # Use semi-empirical
 #ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda') # Or use MACE force field
-geo_opt_parameter = dict(fmax=0.2, steps=20) # This is the ASE keywords for BFGS optimizer.
+geo_opt_parameter = dict(fmax=0.2, steps=20) # This is the ASE keywords for BFGS optimizer. Add ase_constraint=XXX to use ASE's constraint
 
 # Put all together for my calculation part
 computation = energy_computation(templates = cluster_template,      # # From previous definitions
@@ -162,8 +171,7 @@ computation = energy_computation(templates = cluster_template,      # # From pre
     calculator = calculator_command_line ,
     calculator_type = 'external',
     geo_opt_para = geo_opt_control_line ,
-We currently provided external examples for LAMMPS, GROMCAS, xTB, DFTB+, CP2K, ORCA, Gaussian, SPARC.
-See example directory for details
+We currently provided external examples for LAMMPS, xTB, DFTB+, CP2K, ORCA, Gaussian, SPARC. See example directory for more details
 """
 
 """ ----------------------------------------------------
@@ -175,7 +183,7 @@ print( f"Step 3: Run. Output folder: {output_folder_name}" )
 optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # From previous definitions
                       colony_size=20,            # The number of bee in ABC algorithm
                       limit=40,                 # The upper threshold to convert a bee to scout bee
-                      max_iteration=50,         # The max number of iterations
+                      max_iteration=10,         # The max number of iterations
                       initial_population_scaler=5,# How many initial guess to be made before search?
                       ga_interval=2,            # The interval iteration to call GA algorithm
                       ga_parents=10,             # The number of bees to mutate (must be no more than colony_size)

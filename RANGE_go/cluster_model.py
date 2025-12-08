@@ -352,6 +352,40 @@ class cluster_model:
         self.templates = go_templates
         self.boundary = go_boundary
         self.conversion_rule = go_conversion_rule
+        
+        # Save the whole system in one atoms obj for furtuer use
+        self.system_atoms = Atoms()
+        for at in go_templates:
+            self.system_atoms += at
+    
         return go_templates, np.array(go_boundary), go_conversion_rule
     
+    # Get bonds in the input system (to be used for bond constrains if needed)
+    def compute_system_bond_pair(self, considered_molecules=None):
+        """
+        considered_molecules is a dict of "molecule id: [element type]"
+        """
+        if considered_molecules is None: # Consider all atoms
+            considered_molecules = { n:[] for n in range(len(self.molecules)) }
+        considered_molecules_id = list( considered_molecules.keys() )
+            
+        output_atom_index_pairs = []
+        index_head = 0
+        for n, mol in enumerate(self.templates):
+            mol_id = self.global_molecule_index[n]
+            if mol_id in considered_molecules_id and len(mol)>1:
+                connect = self.internal_connectivity[n]
+                # if no atom species assigned --> All. Otherwise, cover connect for certain atoms
+                if len(considered_molecules[ mol_id ])>0:
+                    elements = mol.get_chemical_symbols()
+                    skip_atoms_id = [ i for i in range(len(mol)) if elements[i] not in considered_molecules[ mol_id ] ]
+                    connect[skip_atoms_id,:]=0
+                    connect[:,skip_atoms_id]=0
+                bond_idx = np.argwhere(np.triu(connect,k=0)==1)  # bond pair 
+                bond_idx += index_head  # Update atom index by system
+                output_atom_index_pairs += bond_idx.tolist() 
+                    
+            index_head += len(mol) # Update num of atoms count
+            
+        return output_atom_index_pairs
         

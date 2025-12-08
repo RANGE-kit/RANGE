@@ -39,6 +39,5 @@ for k,v in color_map.items():
     axs[1].set_ylabel('Energy',fontsize=10) ## input Y name
     axs[1].tick_params(direction='in',labelsize=8)
 
-plt.savefig( "my_plot.png", dpi=200)
-plt.show()
-
+plt.savefig( "Energy_profile.png", dpi=200)
+#plt.show()

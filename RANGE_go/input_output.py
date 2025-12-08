@@ -30,6 +30,7 @@ def save_structure_to_db(atoms, vector, energy, name, db_path, **kwargs):
     if atoms is not None and db_path is not None:
         db = connect(db_path)
         data_added = dict(input_vector=vector, output_energy=energy, compute_name=name)
+        atoms.wrap()
         db.write(atoms, data=data_added, **kwargs)
 
 def read_structure_from_db( db_path, selection_strategy, num_of_strutures ):

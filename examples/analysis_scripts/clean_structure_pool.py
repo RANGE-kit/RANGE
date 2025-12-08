@@ -22,6 +22,51 @@ from tqdm import tqdm
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
+"""
+-----------------
+| Input setting  |
+-----------------
+"""
+parser = argparse.ArgumentParser()
+parser.add_argument('--db',    type=str, default='structure_pool.db', help='db file to read')
+parser.add_argument('--input', type=str, default='input_RANGE.py', help='RANGE input')
+parser.add_argument('--group', type=int, nargs="+", default='-1', help='apply grouping analysis. Default: not perform any grouping')
+parser.add_argument('--align', type=int, nargs="+", default='0', help='Atom ID to align structure for gas phase modeling. Default: no align')
+parser.add_argument('--shift', type=float, nargs="+", default='0', help='Translate dX dY dZ of structure for surface modeling. Default: no translation')
+args = parser.parse_args()
+#print( args )
+
+# Here is case-dependent conditions to check structure. Modified based on RANGE_go.utility.check_structure.
+# Each list indicates a molecule in the input molecules (input_molecules). The elements in the list will be used for connectivity check. Empty list means no check.
+check_atom_symbols = [ ['C','N'],['C','O','H'],['H','O'] ]  # Use empty list for no-check
+
+# Additional constraints for checking a good/bad structure can be set on line 177: Other customized conditions? By default, no other condition is considered.
+
+"""
+------------------------------------------------------------
+| Cluster information should agree with generation setting  |
+------------------------------------------------------------
+Can copy/paste from the corresponding RANGE search input
+"""
+xyz_path = '../'
+comp1 = os.path.join(xyz_path, 'mace-opted-box32singlelayer-C3N4-surf-Pt4.xyz' )
+comp2 = os.path.join(xyz_path, 'C3H6.xyz')
+comp3 = os.path.join(xyz_path, 'H2.xyz')
+input_molecules = [ comp1, comp2, comp3 ]
+input_num_of_molecules = [1,1,1]
+
+# We just need the cluster class to use its functions/vars for the cluster components, so here we just make a fake cluster
+input_constraint_type = [ 'at_position' for n in input_molecules ]
+input_constraint_value = [ () for n in input_molecules ]
+cluster = cluster_model(input_molecules, input_num_of_molecules, input_constraint_type, input_constraint_value,
+                        pbc_box=(21.404922 , 24.706836 , 30.27529),
+                        )
+cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
+
+
+"""
+Helper functions
+"""
 def alignment(mol, args_input):
     if args_input==0: # No change
         pass
@@ -72,55 +117,23 @@ def read_RANGE_input(inp):
     exit()
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--input', type=str, default='input_RANGE.py', help='RANGE input')
-parser.add_argument('--group', type=int, nargs="+", default='-1', help='apply grouping analysis')
-parser.add_argument('--align', type=int, nargs="+", default='0', help='Atom ID to align structure for gas phase modeling')
-parser.add_argument('--shift', type=float, nargs="+", default='0', help='Translate dX dY dZ of structure for surface modeling')
-args = parser.parse_args()
-#print( args )
-
-
-"""
-------------------------------------------------------------
-| Cluster information should agree with generation setting  |
-------------------------------------------------------------
-"""
-xyz_path = '../'
-
-comp1 = os.path.join(xyz_path, 'mace-opted-box32singlelayer-C3N4-surf-Pt4.xyz' )
-
-comp2 = os.path.join(xyz_path, 'C3H6.xyz')
-comp3 = os.path.join(xyz_path, 'H2.xyz')
-input_molecules = [ comp1, comp2, comp3 ]
-input_num_of_molecules = [1,1,1]
-
-# We just need the cluster class to use its functions/vars for the cluster components, so here we just make a fake cluster
-input_constraint_type = [ 'at_position' for n in input_molecules ]
-input_constraint_value = [ () for n in input_molecules ]
-cluster = cluster_model(input_molecules, input_num_of_molecules, input_constraint_type, input_constraint_value,
-                        pbc_box=(21.404922 , 24.706836 , 30.27529),
-                        )
-cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
-
 """
 -----------------------------------------------------------------
 | Assign which atoms should be considered in connectivity check  |
 -----------------------------------------------------------------
 """
-# Here is case-dependent conditions to check structure. Modified based on RANGE_go.utility.check_structure
-check_atom_symbols = [ ['C','N'],['C','O','H'],['H','O'] ]  # Use empty list for no-check
+# check_atom_symbols is setup at the begining of the script.
 
 out = []
 for c,n in zip(check_atom_symbols,input_num_of_molecules):
      out += [c]*n
 check_atom_symbols = out
 
-db_path = 'structure_pool.db'
+db_path = args.db 
 sorted_clean_traj = [] #'structure_pool_sorted_clean.xyz'
 ener, name = [],[]
 
-print( "Start analysis loop" )
+print( "Start analysis..." )
 db = connect(db_path)
 #for nr, row in enumerate(db.select()):
 for nr, row in tqdm(enumerate(db.select()), total=len(db), desc="Processing items"):
