@@ -103,12 +103,12 @@ python  clean_structure_pool.py   # +args (See first section of the script)
 # The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis. 
 python  capture_snapshots_from_frameID.py   # +args (See first section of the script)
 
+# For analytical equations, see example at examples/Object_equation/simple_equation.py. 
+# The code can search the minima and return the explored points for immediate further analysis by:
+all_X_vec, all_Y, all_name = opt.run(print_interval=1, if_return_results=True)
+
 ```
 
-    For analytical equations, see example at examples/Object_equation/simple_equation.py. The code can search the minima and return the explored points for immediate further analysis by:
-```bash
-all_X_vec, all_Y, all_name = opt.run(print_interval=1, if_return_results=True)
-```
 
 ## Acknowledgment
 
