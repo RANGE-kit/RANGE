@@ -443,8 +443,8 @@ class energy_computation:
                     v2 = v_new[n] - np.dot(v_new[n], face[3]) * face[3]
                     if np.linalg.norm(v1) > 1e-6 and np.linalg.norm(v2) > 1e-6:
                         break
-                    else:
-                        raise ValueError("No atom suitable for computing rotation angle (all aligned with axis?)")
+                    #else:
+                    #    raise ValueError("No atom suitable for computing rotation angle (all aligned with axis?)")
                 v1 = v1/ np.linalg.norm(v1) 
                 v2 = v2/ np.linalg.norm(v2)
                 dot = np.clip(np.dot(v1, v2), -1.0, 1.0)
