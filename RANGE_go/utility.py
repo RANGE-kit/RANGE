@@ -157,12 +157,15 @@ def check_structure(atoms, energy, input_tuple):
                 new_mol = atoms[ index_head: index_tail+1 ]
                 cutoffs = [ n for n in ngbls.natural_cutoffs(new_mol, mult=1.01) ]
                 ngb_list = ngbls.NeighborList(cutoffs, self_interaction=False, bothways=True)
-                ngb_list.update(new_mol)
-                connect = ngb_list.get_connectivity_matrix(sparse=False)
-                #connect = np.triu(connect, k=1).flatten() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
-                if not np.array_equal(connect, connect_ref):
+                try:
+                    ngb_list.update(new_mol)
+                    connect = ngb_list.get_connectivity_matrix(sparse=False)
+                    #connect = np.triu(connect, k=1).flatten() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
+                    if not np.array_equal(connect, connect_ref):
+                        energy = 2E8
+                        break
+                except:
                     energy = 2E8
-                    break
     return energy
 
 def structure_difference(at1, at2, pbc=True):

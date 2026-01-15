@@ -51,10 +51,7 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 
 print( "Step 2: Setting calculator" )
 # Constraint
-cluster_atoms = Atoms()
-for at in cluster_template:
-    cluster_atoms += at
-ase_constraint = FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'O'])
+ase_constraint = FixAtoms(indices=[at.index for at in cluster.system_atoms if at.symbol != 'O'])
 
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 
                             coarse_calc_step=10, coarse_calc_fmax=10, coarse_calc_constraint=ase_constraint)

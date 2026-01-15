@@ -57,7 +57,7 @@ print( "Step 2: Setting calculator" )
 
 # for ASE
 model_path = 'mace-mpa-0-medium.model' #'mace-mh-1.model'
-ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", )
+ase_calculator = mace_mp(model=model_path, dispersion=True, default_dtype="float64", )
                          #device='cpu', head='omol')
 
 # Constraint

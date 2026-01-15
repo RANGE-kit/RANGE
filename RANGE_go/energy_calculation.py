@@ -523,12 +523,13 @@ class energy_computation:
                     steps = self.geo_opt_para['steps']
                 except:
                     raise ValueError('Geo Opt cannot be done due to missing parameter fmax or steps' )
+
+                dual_opt = None
                 if 'ase_constraint' in self.geo_opt_para:
                     atoms.set_constraint( self.geo_opt_para['ase_constraint'] )
                     if 'Dual_stage_optimization' in self.geo_opt_para: 
                         dual_opt = self.geo_opt_para['Dual_stage_optimization']
-                    else:
-                        dual_opt = None
+
                 try:                    
                     dyn.run( fmax=fmax, steps=steps )
                     if dual_opt is not None:
@@ -538,6 +539,7 @@ class energy_computation:
                     energy = atoms.get_potential_energy()
                     vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
                 except:
+                    #print('Cannot optimize properly to get energy: ', computing_id)
                     energy = 1e7 # Cannot optimize properly to get energy
                     # And vec is not changed
             else:

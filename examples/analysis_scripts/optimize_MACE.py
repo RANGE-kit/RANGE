@@ -20,7 +20,7 @@ atoms.set_pbc( (True,True,True) )
 atoms.set_cell( pbc_box )
 
 #model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model' # for model=XXX
-ase_calculator = mace_mp(model='small', dispersion=False, default_dtype="float64", device='cuda')
+ase_calculator = mace_mp(model='small', dispersion=True, default_dtype="float64", device='cuda')
 atoms.calc = ase_calculator
 
 #dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')

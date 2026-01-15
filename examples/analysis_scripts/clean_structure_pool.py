@@ -22,23 +22,23 @@ from tqdm import tqdm
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
+
 """
------------------
-| Input setting  |
------------------
+------------------------------------------------------------
+| Specific clean setting  |
+------------------------------------------------------------
 """
 parser = argparse.ArgumentParser()
-parser.add_argument('--db',    type=str, default='structure_pool.db', help='db file to read')
-parser.add_argument('--input', type=str, default='input_RANGE.py', help='RANGE input')
-parser.add_argument('--group', type=int, nargs="+", default='-1', help='apply grouping analysis. Default: not perform any grouping')
-parser.add_argument('--align', type=int, nargs="+", default='0', help='Atom ID to align structure for gas phase modeling. Default: no align')
-parser.add_argument('--shift', type=float, nargs="+", default='0', help='Translate dX dY dZ of structure for surface modeling. Default: no translation')
+#parser.add_argument('--input', type=str, default='input_RANGE.py', help='RANGE input')
+parser.add_argument('--group', type=int, nargs="+", default='-1', help='apply grouping analysis. Input one or more integer indice.')
+parser.add_argument('--align', type=int, nargs="+", default='0', help='Atom ID to align structure for gas phase modeling')
+parser.add_argument('--shift', type=float, nargs="+", default='0', help='Translate dX dY dZ of structure for surface modeling')
 args = parser.parse_args()
 #print( args )
 
 # Here is case-dependent conditions to check structure. Modified based on RANGE_go.utility.check_structure.
 # Each list indicates a molecule in the input molecules (input_molecules). The elements in the list will be used for connectivity check. Empty list means no check.
-check_atom_symbols = [ ['C','N'],['C','O','H'],['H','O'] ]  # Use empty list for no-check
+check_atom_symbols = [ ['C','N'],['C','O','H'],['H','O'] ] 
 
 # Additional constraints for checking a good/bad structure can be set on line 177: Other customized conditions? By default, no other condition is considered.
 
@@ -63,9 +63,10 @@ cluster = cluster_model(input_molecules, input_num_of_molecules, input_constrain
                         )
 cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_bounds()
 
-
 """
-Helper functions
+------------------------------------------------------------
+| Helper functions  |
+------------------------------------------------------------
 """
 def alignment(mol, args_input):
     if args_input==0: # No change
@@ -108,43 +109,33 @@ def alignment(mol, args_input):
         raise ValueError('Keyword align has a wrong input')
     return mol
 
-def read_RANGE_input(inp):
-    with open( inp, 'r' ) as f1:
-        lines = f1.readlines()
-    lines1 = [ l for l in lines if "input_molecules" in l ]
-    lines2 = [ l for l in lines if "input_num_of_molecules" in l ]
-    print( lines1, lines2 )
-    exit()
-
 
 """
 -----------------------------------------------------------------
-| Assign which atoms should be considered in connectivity check  |
+| Perform connectivity check  |
 -----------------------------------------------------------------
 """
-# check_atom_symbols is setup at the begining of the script.
-
 out = []
 for c,n in zip(check_atom_symbols,input_num_of_molecules):
      out += [c]*n
 check_atom_symbols = out
 
-db_path = args.db 
+db_path = 'structure_pool.db'
 sorted_clean_traj = [] #'structure_pool_sorted_clean.xyz'
 ener, name = [],[]
 
-print( "Start analysis..." )
+print( "Start cleaning..." )
 db = connect(db_path)
-#for nr, row in enumerate(db.select()):
-for nr, row in tqdm(enumerate(db.select()), total=len(db), desc="Processing items"):
+
+for nr, row in tqdm(enumerate(db.select()), total=len(db), desc="Analyzing: "):
     atoms = row.toatoms() 
     e = row.data.output_energy
-
+    # Check the energy of the structure
     if e<1e3:
         check_pass = True
     else:
         check_pass = False
-
+    # Check the neighbor connectivity changes
     if check_pass:
         index_head, index_tail = -1,-1
         for n, molecule in enumerate(cluster.templates):
@@ -152,7 +143,7 @@ for nr, row in tqdm(enumerate(db.select()), total=len(db), desc="Processing item
             index_tail = index_head +len(molecule) -1 # point to the last atom in mol
             new_mol = atoms[ index_head: index_tail+1 ]
         
-            if len(check_atom_symbols[n])>0 and len(new_mol)>1:
+            if len(check_atom_symbols[n])>0:
                 # check these atoms
                 check_atoms_index = [ at.index for at in new_mol if at.symbol in check_atom_symbols[n] ]
 
@@ -166,30 +157,34 @@ for nr, row in tqdm(enumerate(db.select()), total=len(db), desc="Processing item
                 connect     = connect[ np.ix_(check_atoms_index, check_atoms_index) ] # these rows and cols
             
                 #if np.array_equal(connect, connect_ref):
-                if np.sum(np.abs(connect-connect_ref))!=0:
+                if np.sum(np.abs(connect-connect_ref))!=0:  # if change in connectivity
                     check_pass = False
                     break
                 
     #  Perform geometry re-orientation before analysis, if needed
+    """
+    ---------------------------------
+    | Other customized conditions?  |
+    ---------------------------------
+    """
     if check_pass:
         atoms = alignment(atoms, args.align) 
-    
         """
-        ---------------------------------
-        | Other customized conditions?  |
-        ---------------------------------
+        pt = atoms[[ at.index for at in atoms if at.symbol=='Pt' ]]
+        pt = pt.get_all_distances(mic=False)
+        dmae = np.amax(np.abs( pt - pt_cluster ))
+        if dmae>0.3:
+            check_pass = False
+        """
         """
         pos = atoms.get_positions()
-        #n = [ at.index for at in atoms if at.symbol=='N' ]
-        #h = [ at.index for at in atoms if at.symbol=='H' ]
-        #pos_n = np.mean(pos[n], axis=0)[2]
-        #pos_h = np.mean(pos[h], axis=0)[2]
-        #pos_cu_max = np.amax( pos[cu][:,2] )
-        #pos_cu_min = np.amin( pos[cu][:,2] )
-        #if pos_n > pos_h :
-        #    check_pass = False
-        """
-        --------------------------------
+        L = atoms.cell.lengths()[2]
+        n = [ at.index for at in atoms if at.symbol=='N' ]
+        h = [ at.index for at in atoms if at.symbol=='H' ]
+        pos_n = np.mean(pos[n], axis=0)[2]
+        pos_h = np.mean(pos[h], axis=0)[2]
+        pos_diff = pos_h - pos_n
+        pos_diff = L * round(pos_diff / L)
         """
 
     if check_pass:
@@ -249,7 +244,6 @@ if args.group[0]>=0:
 | FInal write |
 ---------------
 """
-print( "Write output" )
 output_traj, output_ener, output_name = [],[],[]
 write_seprate_lines = 1e9
 with open('energy_summary_sorted_clean.log','w') as f1:
@@ -259,7 +253,7 @@ with open('energy_summary_sorted_clean.log','w') as f1:
         else:
             line = f"{ii:8d} {ener[i]:16.10g} {tags[i][0]:8.4g} {tags[i][1]:16.10g}   {name[i]}\n"
             if tags[i][0] != write_seprate_lines:
-                line = "="*20 + '\n' + line
+                line = "v"*20 + '\n' + line
             write_seprate_lines = tags[i][0]
         f1.write(line)
         atoms = sorted_clean_traj[i]
@@ -270,6 +264,5 @@ with open('energy_summary_sorted_clean.log','w') as f1:
         #output_ener.append( ener[i] )
         #output_name.append( name[i] )
 
-# Write cleaned traj
+print( "Write output... Total frames:", len(output_traj) )
 write( 'structure_pool_sorted_clean.xyz', output_traj )
-

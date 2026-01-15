@@ -57,13 +57,10 @@ print( "Step 2: Setting calculator" )
 #ase_calculator = XTB(method="GFNFF") 
 #model_path = '/ccsopen/home/d2j/software/downloaded_models/2023-12-10-mace-128-L0_energy_epoch-249.model'
 model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model'
-ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", device='cpu')
+ase_calculator = mace_mp(model=model_path, dispersion=True, default_dtype="float64", device='cpu')
 
 # Constraint
-cluster_atoms = Atoms()
-for at in cluster_template:
-    cluster_atoms += at
-ase_constraint = FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'Cu'])
+ase_constraint = FixAtoms(indices=[at.index for at in cluster.system_atoms if at.symbol != 'Cu'])
 
 geo_opt_parameter = dict(fmax=0.05, steps=100, ase_constraint=ase_constraint)
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0, 

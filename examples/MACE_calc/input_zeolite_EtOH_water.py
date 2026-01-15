@@ -49,12 +49,10 @@ print( "Step 2: Setting calculator" )
 
 # for ASE
 model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model'
-ase_calculator = mace_mp(model=model_path, dispersion=False, default_dtype="float64", device='cpu')
+ase_calculator = mace_mp(model=model_path, dispersion=True, default_dtype="float64", device='cpu')
 
 # Constraint
-cluster_atoms = Atoms()
-#index_Al = [at.index for at in cluster_atoms if at.symbol =='Al'][0]
-ase_constraint = None #FixAtoms(indices=[at.index for at in cluster_atoms if at.symbol != 'Cu'])
+ase_constraint = None 
 
 geo_opt_parameter = dict(fmax=0.05, steps=200, ase_constraint=ase_constraint)
 coarse_opt_parameter = dict(coarse_calc_eps='UFF', coarse_calc_sig='UFF', coarse_calc_chg=0,

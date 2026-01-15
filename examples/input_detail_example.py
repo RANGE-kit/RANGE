@@ -126,7 +126,7 @@ Do not use bond constraints in the coarse optimizer since it already freezes int
 
 Then we need to pick a more accurate way to compute energy: ASE calculator or external code. For ASE calculator, constraint can be introduced by ase_constraint=XXX.
 
-For ASE calculator, it is also to apply a dual stage optimization, where the first stage applies constrains and the second stage removes all constraints. To use this, use:
+For ASE calculator, it is also to apply a dual stage optimization, where the first stage applies constraints and the second stage removes all constraints. To use this, use:
     geo_opt_parameter = dict(fmax=0.2, steps=20, ase_constraint=XXXX (some constraints), Dual_stage_optimization=dict(fmax=0.05, steps=20) )
 Dual stage optimization is only active when ase_constraint is active in geo_opt_parameter.
 """
