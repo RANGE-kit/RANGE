@@ -198,7 +198,7 @@ def print_code_info(print_location):
                                            
 RANGE: a Robust Adaptive Nature-inspired Global Explorer of potential energy surfaces
 
-Please cite: Difan Zhang, Małgorzata Z. Makoś, Roger Rousseau, Vassiliki-Alexandra Glezakou; RANGE: A robust adaptive nature-inspired global explorer of potential energy surfaces. J. Chem. Phys. 21 October 2025; 163 (15): 152501. https://doi.org/10.1063/5.0288910
+Original reference: Difan Zhang, Małgorzata Z. Makoś, Roger Rousseau, Vassiliki-Alexandra Glezakou; RANGE: A robust adaptive nature-inspired global explorer of potential energy surfaces. J. Chem. Phys. 21 October 2025; 163 (15): 152501. https://doi.org/10.1063/5.0288910
 
 For any questions, please contact us:
     Difan Zhang, Oak Ridge National Laboratory, USA, zhangd2@ornl.gov
@@ -207,5 +207,8 @@ For any questions, please contact us:
 RANGE search starts...
         """
         print(starting_string)
+    elif print_location=='Ending':
+        ending_string = "Search completed. Code exiting..."
+        print( ending_string )
     else:
         print(str(print_location))

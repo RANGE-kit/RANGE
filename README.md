@@ -2,9 +2,9 @@
 
 RANGE: a Robust Adaptive Nature-inspired Global Explorer of potential energy surfaces
 
-A python code using hybrid ABC+GA algorithm to explore potential energy surfaces and search low-energy structures for chemistry and materials science. It can use a third-party computational software as the energy evaluator.
+A python code using hybrid ABC+GA algorithm to explore potential energy surfaces and search low-energy structures for chemistry and materials science. It can use a third-party computational software as the energy evaluator. It can also be used as a module for optimizing analytical equations.
 
-Publication: Difan Zhang, Małgorzata Z. Makoś, Roger Rousseau, Vassiliki-Alexandra Glezakou; RANGE: A robust adaptive nature-inspired global explorer of potential energy surfaces. J. Chem. Phys. 21 October 2025; 163 (15): 152501. https://doi.org/10.1063/5.0288910
+Reference: Difan Zhang, Małgorzata Z. Makoś, Roger Rousseau, Vassiliki-Alexandra Glezakou; RANGE: A robust adaptive nature-inspired global explorer of potential energy surfaces. J. Chem. Phys. 21 October 2025; 163 (15): 152501. https://doi.org/10.1063/5.0288910
 
 ## Installation
 
@@ -17,9 +17,9 @@ pip install .
 
 ## Usage
 
-Examples are provided in the "examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. Examples using different calculators are provided in various folders.
+Examples are provided in the "Examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. The Jupyter Notebook structure_generation.ipynb provides additional simple cases. Examples using different calculators are provided in various other folders.
 
-To breifly summarize, here are the minimal steps to setup a RANGE search using MACE ASE calculator to build a copper cluster on BaTiO3 surface:
+To breifly summarize, here are the minimal steps to setup a RANGE search using an ASE calculator to build a copper cluster on a barium titanate surface:
 
 1. Load necessary library.
 ```bash
@@ -54,7 +54,6 @@ cluster_template, cluster_boundary, cluster_conversion_rule = cluster.generate_b
 3. Setup the calculation method.
 ```bash
 # If needed, we freeze some atoms to accelerate calculations. This is here just to show the option and it not always needed.
-# More control on contraints can be found in examples/MACE_calc/input_Nd_solvation.py
 ase_constraint = FixAtoms(indices=[at.index for at in cluster.system_atoms if at.symbol != 'Cu'])
 
 # We setup a built-in calculator for coarse, pre-optimization to accelerate geometry optimization and avoid bad initial structures.
@@ -109,6 +108,9 @@ all_X_vec, all_Y, all_name = opt.run(print_interval=1, if_return_results=True)
 
 ```
 
+## Additional application examples
+
+1. Jarngal, Princy, et al. "Protonation dynamics of confined ethanol–water mixtures in H-ZSM-5 from machine learning-driven metadynamics." Journal of Catalysis (2025): 116658.
 
 ## Acknowledgment
 

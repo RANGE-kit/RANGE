@@ -156,10 +156,10 @@ class GA_ABC():
                 self.best_trial += 1
             else:
                 idx = np.argmax(self.y)
-                assert len(self.y)==len(self.trial), f'{len(self.y)} {len(self.trial)}'
+                #assert len(self.y)==len(self.trial), f'{len(self.y)} {len(self.trial)}'
                 self.trial[ self.y < new_y ] += 1
                 self.x[idx], self.y[idx], self.trial[idx] = new_x, new_y, 0
-                if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-4: # If a new best Y
+                if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-6: # If a new best Y
                     self.best_trial = 0
                     self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
                 else:
@@ -461,6 +461,7 @@ class GA_ABC():
         # Run completed
         if print_interval is not None: 
             print(f"Job completed with best GM: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
+            print_code_info('Ending')
         
         if if_return_results:
             return self.pool_x, self.pool_y, self.pool_name

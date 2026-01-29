@@ -319,7 +319,8 @@ class cluster_model:
                 bound = [ (-0.499, len(grid_points)-1+0.499), (0,0), (0,0) ] + [(0,0)]*3
                 
             elif self.constraint_type[n] == 'replace':
-                raise ValueError('The replace constraint has been temporarily disabled due to an unstable behavior. Fix will be implemented soon.')
+                if self.num_of_molecules[n] >1:
+                    raise ValueError('The replace constraint applies to a single replacement, not multiple replacements.')
                 """
                 Replace certain atoms in another substrate molecule (the first in order) by atom index
                 Input parameter is: 

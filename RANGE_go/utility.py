@@ -67,7 +67,7 @@ def get_translation_and_euler_from_positions(pos_start, pos_final):
             R_matrix = Vt.T @ U.T
         # Extract Euler angles in ZXZ
         rot = Rotation.from_matrix(R_matrix)
-        phi, theta, psi = rot.as_euler('ZXZ', degrees=True)
+        phi, theta, psi = rot.as_euler('ZXZ', degrees=True, suppress_warnings=True )
         # Translation vector
         rotated_centroid = R_matrix @ centroid_start
         translation_vector = centroid_final - rotated_centroid
@@ -141,7 +141,7 @@ def check_structure(atoms, energy, input_tuple):
     # Always distance check
     dist = atoms.get_all_distances(mic=True, vector=False)
     dist = dist[np.triu_indices(dist.shape[0], k=1)] # only upper triangle without diagonal values
-    if np.amin(dist)<0.7: # bad distance. collapse.
+    if np.amin(dist)<0.6: # bad distance. collapse.
         energy = 2E9 # bad structure
     elif input_tuple is not None:
         # input_tuple must be a tuple of size 2: 0=cluster, 1=a list of molecule id

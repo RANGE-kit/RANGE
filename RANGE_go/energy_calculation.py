@@ -15,6 +15,7 @@ from ase.optimize import BFGS
 from ase.io import read, write
 from ase.calculators.calculator import Calculator, all_changes
 from ase.neighborlist import NeighborList
+from ase.calculators.singlepoint import SinglePointCalculator
 
 import subprocess
 import shutil
@@ -501,7 +502,7 @@ class energy_computation:
                 pass
             elif self.calculator_type != 'structural':
                 write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms, format='xyz') 
-            vec = self.cluster_to_vector( atoms, vec ) # update vec since we optimized the structure   
+            vec = self.cluster_to_vector( atoms, vec ) # update vec after coarse opt
                           
         # The fine optimization
         start_time = time.time()
@@ -537,7 +538,7 @@ class energy_computation:
                         dual_fmax, dual_steps = dual_opt['fmax'], dual_opt['steps'] #, dual_opt['ase_constraint']
                         dyn.run( fmax=dual_fmax, steps=dual_steps )
                     energy = atoms.get_potential_energy()
-                    vec = self.cluster_to_vector( atoms, vec )    # Update vec again after opt
+                    vec = self.cluster_to_vector( atoms, vec )    # Update vec after fine opt
                 except:
                     #print('Cannot optimize properly to get energy: ', computing_id)
                     energy = 1e7 # Cannot optimize properly to get energy
@@ -563,6 +564,8 @@ class energy_computation:
 
         # Final check on structure for unreasonable geometry
         energy = check_structure(atoms, energy, self.check_structure_sanity)
+        # Always assign the updated energy to atoms
+        atoms.calc = SinglePointCalculator(atoms, energy=energy)
             
         # Vec, structure and energy are all finalized now. They will be saved in db file.
         if self.save_output_level == 'Full':
