@@ -199,4 +199,4 @@ optimization = GA_ABC(computation.obj_func_compute_energy, cluster_boundary,  # 
                       )
 optimization.run(print_interval=1, if_return_results=False)  # Start running. Print information with given frequency. Ignore log and return output history
 
-print( "Use example/analysis_output_energy.py to analyze/summarize results, or create your own" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.
+print( "Use example/analysis_tools/ to analyze/summarize results, or create your own" )  # If pool info is not analyzed here. We can use the analysis script after finishing this calculation.

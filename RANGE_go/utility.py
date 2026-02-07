@@ -171,9 +171,50 @@ def check_structure(atoms, energy, input_tuple):
 def structure_difference(at1, at2, pbc=True):
     cell = at1.get_cell()
     diff_raw = at1.positions - at2.positions
-    diff_mic, _ = find_mic(diff_raw, cell, pbc)
-    return diff_mic
+    diff_mic, diff_length = find_mic(diff_raw, cell, pbc)
+    return diff_mic, diff_length
 
+def alignment(mol, args_input):
+    if args_input==0: # No change
+        pass
+    elif len(args_input) in [3,4] :  
+    # 3 = two atom ID for X direction, then one for plane definition and Y direction
+    # 4 = two atom ID for X direction, then one for plane definition, and one for Z direction
+        x1_atom_id = args_input[0]
+        x2_atom_id = args_input[1]
+        x3_atom_id = args_input[2]
+
+        # Rotate X1-->X2 into positive X-axis
+        mol.rotate( mol.positions[x2_atom_id] - mol.positions[x1_atom_id] , (1,0,0), center=(0,0,0) )
+        # Move center atom to (0,0,0)
+        center = ( mol.positions[x1_atom_id] + mol.positions[x2_atom_id] )*0.5
+        mol.translate( -center ) 
+
+        # X1, X2, and X3 plane
+        pos = mol.get_positions()
+        u = pos[x1_atom_id] - pos[x3_atom_id]
+        v = pos[x2_atom_id] - pos[x3_atom_id]
+        surf_norm = np.cross(u, v)
+        surf_norm = surf_norm/np.linalg.norm(surf_norm)
+
+        if len(args_input) == 4:
+            z1_atom_id = args_input[3]
+            w = pos[z1_atom_id] - pos[x3_atom_id]
+            if np.dot( surf_norm, w ) <0:
+                surf_norm = -surf_norm
+
+        # rotate along X to make surf_norm -> +Z
+        _, ny, nz = surf_norm
+        theta = np.degrees( np.arctan2(ny, nz) )     # angle needed
+        mol.rotate( theta, 'x' )  # rotate along X
+
+        if len(args_input) == 3:
+            if mol.positions[x3_atom_id][2]<0:
+                mol.rotate( 180, 'x' )  # rotate along X
+    else:
+        raise ValueError('Keyword align has a wrong input')
+    return mol
+    
     
 # UFF force field parameter for LJ interaction. Eps in kJ/mol, Sig in Angstrom
 # "UFF, a Full Periodic Table Force Field for Molecular Mechanics and Molecular Dynamics Simulations" J Am Chem Soc, 114, 10024-10035 (1992) https://doi.org/10.1021/ja00051a040

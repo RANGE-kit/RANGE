@@ -17,7 +17,7 @@ pip install .
 
 ## Usage
 
-Examples are provided in the "Examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. The Jupyter Notebook structure_generation.ipynb provides additional simple cases. Examples using different calculators are provided in various other folders.
+If you are interested in using this tool, we would appreciate it if you could inform us. This information is collected solely for usage tracking purposes, to help us better understand the adoption and usability of the code. Usage examples are provided in the "Examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. The Jupyter Notebook structure_generation.ipynb provides additional simple cases. Examples using different calculators are provided in different folders.
 
 To breifly summarize, here are the minimal steps to setup a RANGE search using an ASE calculator to build a copper cluster on a barium titanate surface:
 
@@ -89,18 +89,18 @@ optimization.run(print_interval=1)
 
 5. Analysis and summary.
 
-    The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_scripts/ or user-customized scripts. Use/revise as needed.
+    The generated structures are saved into "structure_pool.db" by default. Analysis can be performed using some scripts in examples/analysis_tools/ or user-customized scripts. Use/revise as needed.
 ```bash
-# analysis_output_energy.py directly analyzes the results (from db file if exsits, otherwise the result folder), generates a summary log and energy profile figure, 
-#    and a XYZ trajectory with energy sorted if needed. To use, under the same path of the RANGE search job:
-python analysis_output_energy.py  # No args
+# The "energy_plots.py" analyzes the results (from db file if exsits, otherwise the result folder), generates a summary log and energy profile figure.
+#    It can also generate a XYZ trajectory with energy sorted if needed. Under the same path of the RANGE search job:
+python energy_plots.py
 
-# The "clean_structure_pool.py" provides a more detailed structure analysis than analysis_output_energy.py
-#   It reads the output db file, and furhter narrows down structures based on connectivity and/or structure similarity and/or other conditions. To use:
-python  clean_structure_pool.py   # +args (See first section of the script)
+# The "clean_structure_pool.py" provides a more detailed structure analysis than energy plots.
+#   It reads the output db/xyz file, and furhter narrows down structures based on connectivity and/or structure similarity and/or other conditions. Use example:
+python  clean_structure_pool.py --input xxx.xyz --group 0 1
 
-# The "capture_snapshots_from_frameID.py" extracts certain frames into a smaller trajectory file for further analysis. 
-python  capture_snapshots_from_frameID.py   # +args (See first section of the script)
+# The "frame_capture.py" extracts certain frames into a smaller trajectory file or separated files for additional analysis. Useful when specific frames are needed.
+python  frame_capture.py --frame 0 1 7 21
 
 # For analytical equations, see example at examples/Object_equation/simple_equation.py. 
 # The code can search the minima and return the explored points for immediate further analysis by:

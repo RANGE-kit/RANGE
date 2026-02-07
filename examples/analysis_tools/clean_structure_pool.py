@@ -7,7 +7,8 @@ Created on Wed Jun  4 09:09:47 2025
 
 
 from RANGE_go.cluster_model import cluster_model
-from RANGE_ts.utility import read_trajectory, structure_difference, alignment
+from RANGE_go.input_output import read_trajectory
+from RANGE_go.utility import structure_difference, alignment
 
 import numpy as np
 #import matplotlib.pyplot as plt
@@ -45,26 +46,11 @@ check_atom_displacement = [ ['Pt'], [], [], [] ]  # Use empty list for no-check
 ------------------------------------------------------------
 """
 xyz_path = '../xyz_structures/'
-comp1 = os.path.join(xyz_path, 'box32singlelayer-C3N4-surf-Pt4.xyz' )
+comp1 = os.path.join(xyz_path, 'gC3N4-layer.xyz' )
 
-comp2 = os.path.join(xyz_path, 'C3H8-propane.xyz')
+comp2 = os.path.join(xyz_path, 'C3H8.xyz')
 input_molecules = [ comp1, comp2 ]
 input_num_of_molecules = [1,1]
-
-#comp2 = os.path.join(xyz_path, 'C3H7.xyz')
-#comp3 = os.path.join(xyz_path, 'H.xyz')
-#input_molecules = [ comp1, comp2, comp3 ]
-#input_num_of_molecules = [1,1,1]
-
-#comp2 = os.path.join(xyz_path, 'C3H6.xyz')
-#comp3 = os.path.join(xyz_path, 'H.xyz')
-#input_molecules = [ comp1, comp2, comp3 ]
-#input_num_of_molecules = [1,1,2]
-
-#comp2 = os.path.join(xyz_path, 'C3H6.xyz')
-#comp3 = os.path.join(xyz_path, 'H2.xyz')
-#input_molecules = [ comp1, comp2, comp3 ]
-#input_num_of_molecules = [1,1,1]
 
 # We just need the cluster class to use its functions/vars for the cluster components, so here we just make a fake cluster
 cluster = cluster_model(input_molecules, input_num_of_molecules, ['at_position']*len(input_molecules), [()]*len(input_molecules),
@@ -233,3 +219,22 @@ with open(args.log,'w') as f1:
 
 print( "Total output frames:", len(output_traj) )
 write( args.output, output_traj )
+
+# Shall we write another file containing only the representative frames?
+rep_indice = []            
+used_E_and_XYZ = {}           
+for n, atoms in enumerate(output_traj):
+    E_group = atoms.info["E_group"]
+    XYZ_sim = atoms.info["XYZ_similarity"]
+    if E_group not in list(used_E_and_XYZ.keys()): # A new E group
+        used_E_and_XYZ[E_group] = [XYZ_sim]
+        rep_indice.append(n)
+    else: # An exsiting E group
+        diff = XYZ_sim - np.asarray(used_E_and_XYZ[E_group])
+        if np.all( np.abs(diff)>0.1 ): # Not close enough to all exsiting structures
+            rep_indice.append(n)
+            used_E_and_XYZ[E_group].append( XYZ_sim )
+rep_traj = [ output_traj[i] for i in rep_indice ]
+print( "Total output Representative frames:", len(rep_traj) )
+write( 'Representative_'+args.output, rep_traj )
+

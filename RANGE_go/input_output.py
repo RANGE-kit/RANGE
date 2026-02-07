@@ -59,6 +59,45 @@ def read_structure_from_directory( directory_path, selection_strategy, num_of_st
     vec, ener, name = select_vector_and_energy(vec, ener, name, selection_strategy, num_of_strutures)
     return  vec, ener, name, length_of_current_pool
 
+def read_trajectory( traj_path, num ):
+    print( 'Reading from: ', traj_path )
+    if '.xyz'==traj_path[-4:]:
+        ener, name, traj = [],[],[]  
+        input_traj = read( traj_path, index=":")
+        for n, atoms in enumerate(input_traj):
+            try:
+                traj.append( atoms )
+                ener.append( atoms.get_potential_energy() )
+                name.append( 'xyz-frame-'+str(n) )
+            except:
+                print('Frame ',n, 'cannot be converted... Continue to next...')
+    elif '.db'==traj_path[-3:]:
+        db = connect(traj_path)
+        ener, name, traj = [],[],[]    
+        for row in db.select():
+            traj.append( row.toatoms() )
+            ener.append( row.data.output_energy )
+            name.append( row.data.compute_name )
+        ener = np.asarray(ener)
+            
+    if isinstance(num, int): # select X num of structures
+        traj1, ener1, name1 = select_atoms( traj, ener, name, num)
+    elif isinstance(num, float): # The relative energy upper limit
+        mask = ener < np.amin(ener) + num
+        traj1, ener1, name1 = [],[],[]
+        for n in range( len(mask) ):
+            if mask[n]:
+                traj1.append( traj[n] )
+                ener1.append( ener[n] )
+                name1.append( name[n] )
+    else:
+        traj1 = traj
+        ener1 = ener
+        name1 = name
+    print( f'Finished reading {len(traj)} frames and get {len(traj1)} initial frames with current selection')
+    ener1 = np.asarray(ener1)
+    return traj1, ener1, name1
+
 def select_vector_and_energy(vector,energy,names, selection_strategy, num_of_strutures):
     if selection_strategy=='all' or selection_strategy==None or num_of_strutures>=len(energy): # All data
         idx = np.arange(len(energy))
