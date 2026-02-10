@@ -15,6 +15,8 @@ from ase.geometry import find_mic
 from scipy.spatial.transform import Rotation 
 #from scipy.spatial.distance import cdist
 
+import warnings
+
 
 def cartesian_to_ellipsoidal_deg(x, y, z, A, B, C):
     x_ = x / A
@@ -67,7 +69,9 @@ def get_translation_and_euler_from_positions(pos_start, pos_final):
             R_matrix = Vt.T @ U.T
         # Extract Euler angles in ZXZ
         rot = Rotation.from_matrix(R_matrix)
-        phi, theta, psi = rot.as_euler('ZXZ', degrees=True, suppress_warnings=True )
+        with warnings.catch_warnings():
+            warnings.filterwarnings( "ignore", message=".*Gimbal lock.*" )
+            phi, theta, psi = rot.as_euler('ZXZ', degrees=True) # suppress_warnings=True )
         # Translation vector
         rotated_centroid = R_matrix @ centroid_start
         translation_vector = centroid_final - rotated_centroid

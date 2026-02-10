@@ -317,10 +317,11 @@ class energy_computation:
                 template_adsorb_atom_location = m.positions[self.go_conversion_rule[i][1]] # 1= adsorbate_at_position
                 template_adsorb_direction = m.positions[self.go_conversion_rule[i][2]] - template_adsorb_atom_location # 2= direction atom
                 
-                m.translate( adsorb_location - template_adsorb_atom_location )  
-                m.rotate( template_adsorb_direction, face[3], center=adsorb_location)  # adsorbate_in_direction --> surf_norm 
-                m.rotate( t[4], face[3], center=adsorb_location )
-                #m.rotate( t[5], 'x', center=adsorb_location )
+                m.translate( adsorb_location - template_adsorb_atom_location ) 
+                if len(m)>1:
+                    m.rotate( template_adsorb_direction, face[3], center=adsorb_location)  # adsorbate_in_direction --> surf_norm 
+                    m.rotate( t[4], face[3], center=adsorb_location )
+                    #m.rotate( t[5], 'x', center=adsorb_location )
                 
             elif self.go_conversion_rule[i][0] == 'in_pore':
                 t, euler = vec[6*i : 6*i+3], vec[6*i+3 : 6*i+6] 
@@ -435,25 +436,28 @@ class energy_computation:
                 sol, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None)
                 x1, x2 = sol # The 2nd and 3rd value of output
                 # Lastly, the rotation angle along surf norm
-                mol_new.rotate( adsorb_direction_new, face[3], center=adsorb_location_new)
-                pos_new = mol_new.get_positions()
-                v_new = pos_new - np.mean(pos_new, axis=0)
-                v_old = pos_old - np.mean(pos_old, axis=0)
-                for n in range(len(v_new)):
-                    v1 = v_old[n] - np.dot(v_old[n], face[3]) * face[3]
-                    v2 = v_new[n] - np.dot(v_new[n], face[3]) * face[3]
-                    if np.linalg.norm(v1) > 1e-6 and np.linalg.norm(v2) > 1e-6:
-                        break
-                    #else:
-                    #    raise ValueError("No atom suitable for computing rotation angle (all aligned with axis?)")
-                v1 = v1/ np.linalg.norm(v1) 
-                v2 = v2/ np.linalg.norm(v2)
-                dot = np.clip(np.dot(v1, v2), -1.0, 1.0)
-                cross = np.cross(v1, v2)
-                angle_rad = np.arccos(dot)
-                sign = np.sign(np.dot(cross, face[3]))
-                angle_deg = np.degrees(angle_rad) * sign
-                angle_deg = angle_deg % 360 # Normalize to 0-360
+                if len(mol_new)>1:
+                    mol_new.rotate( adsorb_direction_new, face[3], center=adsorb_location_new)
+                    pos_new = mol_new.get_positions()
+                    v_new = pos_new - np.mean(pos_new, axis=0)
+                    v_old = pos_old - np.mean(pos_old, axis=0)
+                    for n in range(len(v_new)):
+                        v1 = v_old[n] - np.dot(v_old[n], face[3]) * face[3]
+                        v2 = v_new[n] - np.dot(v_new[n], face[3]) * face[3]
+                        if np.linalg.norm(v1) > 1e-6 and np.linalg.norm(v2) > 1e-6:
+                            break
+                        #else:
+                        #    raise ValueError("No atom suitable for computing rotation angle (all aligned with axis?)")
+                    v1 = v1/ np.linalg.norm(v1) 
+                    v2 = v2/ np.linalg.norm(v2)
+                    dot = np.clip(np.dot(v1, v2), -1.0, 1.0)
+                    cross = np.cross(v1, v2)
+                    angle_rad = np.arccos(dot)
+                    sign = np.sign(np.dot(cross, face[3]))
+                    angle_deg = np.degrees(angle_rad) * sign
+                    angle_deg = angle_deg % 360 # Normalize to 0-360
+                else:
+                    angle_deg = 0
                 # Final output
                 vec_new += [surf_idx, x1, x2, distance, angle_deg, 0]
                 
@@ -541,13 +545,13 @@ class energy_computation:
                     vec = self.cluster_to_vector( atoms, vec )    # Update vec after fine opt
                 except:
                     #print('Cannot optimize properly to get energy: ', computing_id)
-                    energy = 1e7 # Cannot optimize properly to get energy
+                    energy = 5555555 # Cannot optimize properly to get energy
                     # And vec is not changed
             else:
                 try:
                     energy = atoms.get_potential_energy()
                 except:
-                    energy = 1e8 # Cannot compute energy.
+                    energy = 6666666 # Cannot compute energy.
 
         elif self.calculator_type == 'external': # To use external command
             atoms, energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
@@ -652,7 +656,7 @@ class energy_computation:
                 else:
                     energy = 1e12 # Optimization done but no energy written. This should not happen.
             else:
-                energy = 1e7
+                energy = 7777777
             
             # Get the final structure
             if os.path.exists( 'xtbopt.xyz' ):
@@ -690,8 +694,8 @@ class energy_computation:
                     # Get the final xyz 
                     atoms = read( 'data-out.xyz' )
                 except subprocess.CalledProcessError as e:
-                    print( 'ORCA Error: ', job_directory , e.stderr)
-                    energy = 1e7
+                    print( 'DFTB+ Error: ', job_directory , e.stderr)
+                    energy = 7777777
                     atoms = read(start_xyz)
             else:
                 raise NameError('DFTB+ input is not provided by input key')            
@@ -721,7 +725,7 @@ class energy_computation:
                     
                 except subprocess.CalledProcessError as e:
                     print( job_directory , e.stderr)
-                    energy = 1e7
+                    energy = 7777777
                     atoms = read(start_xyz)
 
             else:
@@ -753,7 +757,7 @@ class energy_computation:
                     energy = None
                 except:
                     print( f' Gaussian failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
-                    energy = 1e7
+                    energy = 7777777
                     atoms = read(start_xyz)
                 
                 if energy is None: # calculation done successfully
@@ -797,7 +801,7 @@ class energy_computation:
                     atoms = read( 'input-ORCA.xyz' )
                 except subprocess.CalledProcessError as e:
                     print( 'ORCA Error: ', job_directory , e.stderr)
-                    energy = 1e7
+                    energy = 7777777
                     atoms = read(start_xyz)
             else:
                 raise NameError('ORCA input is not provided by input key')
@@ -827,11 +831,11 @@ class energy_computation:
                     atoms = read( 'data-out.lammps' )
                 except subprocess.CalledProcessError as e:
                     print( 'LAMMPS Error: ', job_directory , e.stderr)
-                    energy = 1e7
+                    energy = 7777777
                     atoms = read(start_xyz)
                     
         elif geo_opt_para_line['method'] == 'GROMACS':
-            raise ValueError('GROMACS is disabled due to compatibility issue. Will reopen in further edition')
+            raise ValueError('GROMACS is disabled due to compatibility issue. Will reopen after further correction')
             """
             if 'input' in geo_opt_para_line: # Check if GMX input is ready
                 if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
@@ -856,8 +860,8 @@ class energy_computation:
                     # Get the final structure 
                     atoms = read( 'data-out.gro' )
                 except subprocess.CalledProcessError as e:
-                    print( 'LAMMPS Error: ', job_directory , e.stderr)
-                    energy = 1e7
+                    print( 'GROMACS Error: ', job_directory , e.stderr)
+                    energy = 7777777
                     atoms = read(start_xyz)   
             """     
             
