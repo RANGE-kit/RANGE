@@ -97,7 +97,7 @@ class GA_ABC():
             self.pool_x, self.pool_y = np.copy(self.x), np.copy(self.y) # The initial pool
             self.atoms_pool = [ None for i in range(len(self.pool_name)) ]
             if print_interval is not None: 
-                print(f"Initialization from previous generations in {self.restart_from_pool}")
+                print(f"--- Initialization from previous generations in {self.restart_from_pool}")
         else: 
             self.previous_pool_size = 0
             lo, hi = self.bounds.T   # Each is a 1D array, with shape = D 
@@ -120,7 +120,7 @@ class GA_ABC():
             idx = select_max_diversity(self.x, self.y, self.colony_size) 
             self.x, self.y = self.x[idx], self.y[idx] 
             if print_interval is not None: 
-                print("Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) ) 
+                print("--- Initialization from random generations by SC bees using",  ' '.join([f"{ix}-->{i}" for i,ix in enumerate(idx)]) ) 
         self.trial = np.zeros( self.colony_size , int)  # trial counter... 
         # The best X and Y at the begining
         best_idx = np.argmin(self.y) 
@@ -159,7 +159,7 @@ class GA_ABC():
                 #assert len(self.y)==len(self.trial), f'{len(self.y)} {len(self.trial)}'
                 self.trial[ self.y < new_y ] += 1
                 self.x[idx], self.y[idx], self.trial[idx] = new_x, new_y, 0
-                if (self.best_y - new_y)/(abs(self.best_y)+1e-10) > 1E-6: # If a new best Y
+                if (self.best_y - new_y)/(abs(self.best_y)+1e-15) > 1E-9: # If a new best Y
                     self.best_trial = 0
                     self.best_x, self.best_y, self.best_id = np.asarray(new_x), float(new_y), str(new_id)
                 else:
@@ -234,7 +234,7 @@ class GA_ABC():
     def calc_new_candiate(self, candi_x, candi_id, candi_dir):
         if self.if_return_results:
             diff = np.mean( np.abs(self.pool_x - np.array(candi_x))/(np.abs(candi_x)+1e-16) , axis=1 )
-            overlap_id = np.where( diff < 1e-8 )[0] # threoshold             
+            overlap_id = np.where( diff < 1e-9 )[0] # threoshold             
             if len(overlap_id)==0:
                 candi_x, candi_y, candi_atoms = self.func(candi_x, candi_id , candi_dir)
                 #self.add_to_pool([candi_x], [candi_y], [candi_id], [candi_atoms])  # Only add unique candidates to pool
@@ -244,6 +244,7 @@ class GA_ABC():
             self.add_to_pool([candi_x], [candi_y], [candi_id], [candi_atoms])  # Or, add all candidates to pool
         else:
             candi_x, candi_y, candi_atoms = self.func(candi_x, candi_id , candi_dir)
+            self.add_to_pool([candi_x], [candi_y], [candi_id], [candi_atoms])  
         return candi_x, candi_y, candi_atoms
 
         
@@ -449,8 +450,9 @@ class GA_ABC():
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print( f'Dynamic info at End of Iteration {it:5d}: EM_num={round(num_of_EM,2)} OL_num={num_of_OL:3d} SC_limit={sc_limit:3d} performed to find best_Y={self.best_y:16.6} Life={self.best_trial:5d} Total_size={self.global_structure_index:5d} Generate_size={self.global_structure_index-self.previous_pool_size:5d} with current Ratio={np.round(self.get_best_ratio(),2)}')
-                        #print( f'Bee values : {it:5d}', ' '.join(list(self.y.astype('str'))) )
+                        best_id = np.argmin(self.pool_y)
+                        best_y, best_name = self.pool_y[best_id], self.pool_name[best_id]
+                        print( f'--- End of Iteration {it:5d}: best GM {best_y:16.6f} at {best_name}' )
                 if self.early_stop(self.early_stop_parameter):
                     break
                 
@@ -460,7 +462,9 @@ class GA_ABC():
             
         # Run completed
         if print_interval is not None: 
-            print(f"Job completed with best GM: {self.best_y} at {self.best_id} that has survived last {self.best_trial} times of {self.global_structure_index} generations")
+            best_id = np.argmin(self.pool_y)
+            best_y, best_name = self.pool_y[best_id], self.pool_name[best_id]
+            print( f"Search completed with best GM: {best_y} at {best_name}" ) # that has survived last {self.best_trial} times of {self.global_structure_index} generations")
             print_code_info('Ending')
         
         if if_return_results:

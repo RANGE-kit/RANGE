@@ -1,32 +1,84 @@
-import sys, os
+import os, argparse
 from mace.calculators import MACECalculator, mace_anicc, mace_mp, mace_off
 from ase.optimize import BFGS
 from ase.io import read, write
+from ase.calculators.singlepoint import SinglePointCalculator
+from ase.constraints import FixedPlane, FixAtoms
+import torch
+from tqdm import tqdm
+from pathlib import Path
 
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Provide user input
-xyz_path = '../xyz_structures'
-substrate = os.path.join(xyz_path, 'batio3-cub-7layer-tio.xyz' )
-#substrate = 'gm-from-makos.xyz'
+try:
+    data_file = 'refined-PES-samples.xyz'
+    traj = read( data_file , index=":" )
+    output_name = 'reopt/'
+except:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', type=str, nargs="+")
+    args = parser.parse_args()
+    
+    traj = [ read(f, index='-1') for f in args.input ]
+    output_name = "geoopt-"
 
-atoms = read( substrate )#sys.argv[1] )
-#atoms = atoms[[atom.index for atom in atoms if atom.symbol!='Cu']]
+#atoms = atoms[[at.index for at in atoms if at.position[2]>11]]
 
+#atoms = read( 'C3N4.poscar' )
 #pbc_box=(20.26028, 20.26028, 32.13928)
-pbc_box=(17,17,17)
-atoms.set_pbc( (True,True,True) )
-atoms.set_cell( pbc_box )
+pbc_box=(21.404922 , 24.706836 , 30.27529) 
 
-#model_path = '/ccsopen/home/d2j/software/downloaded_models/mace-mpa-0-medium.model' # for model=XXX
-ase_calculator = mace_mp(model='small', dispersion=True, default_dtype="float64", device='cuda')
-atoms.calc = ase_calculator
+#atoms = atoms.repeat((3, 2, 1))
+#write( 'out.xyz', atoms)
+#exit()
 
-#dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
-dyn = BFGS(atoms)#, logfile=dyn_log )
-dyn.run( fmax=0.2, steps=50 )
-write( 'geoopt.xyz', atoms )
+c = FixAtoms(indices=[at.index for at in traj[0] if at.symbol in ['N']])
+#c = FixedPlane( [at.index for at in atoms if at.position[2]<2 ],  direction=[0, 0, 1] )
+#atoms.set_constraint(c)
+
+
+model_path = '/global/cfs/cdirs/m4621/difan/mace_foundation_models/mace-mh-1.model'
+dispersion_D3 = True
+#device = 'cuda'
+if torch.cuda.is_available():
+    device = 'cuda'
+else:
+    device = 'cpu'
+print('Use resource: ', device)
+model_head = 'omat_pbe'
+ase_calculator = mace_mp(model=model_path, dispersion=dispersion_D3, default_dtype="float64", device=device, head=model_head)
+
+output_traj = []
+for n,atoms in tqdm(enumerate(traj), total=len(traj), desc="Analyzing: "):
+#for n,atoms in enumerate(traj):
+    output_path = f'{output_name}frame-{n}.xyz'
+    p = Path(output_path)
+
+    if p.is_file(): # or n<3200:
+        print( 'Pass', n )
+    else:
+        #atoms.set_pbc( (True,True,True) )
+        #atoms.set_cell( pbc_box )
+
+        #atoms.set_constraint(c)
+        atoms.calc = ase_calculator
+        
+        dyn = BFGS(atoms, logfile=None)#, logfile='opt.log' or None )
+        dyn.run( fmax=0.02, steps=500 )
+        
+        pe = atoms.get_potential_energy()
+        atoms.calc = SinglePointCalculator(atoms, energy=pe)
+        
+        #output_traj.append( atoms )
+
+        #print( '---->', n, pe )
+        write( output_path, atoms )
+
+#write( output_name, output_traj )
+
+exit()
 
 # MD section if we want
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution

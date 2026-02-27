@@ -247,7 +247,7 @@ RANGE search starts...
         """
         print(starting_string)
     elif print_location=='Ending':
-        ending_string = "Search completed. Code exiting..."
+        ending_string = "Code exiting..."
         print( ending_string )
     else:
         print(str(print_location))
