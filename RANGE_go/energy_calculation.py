@@ -866,6 +866,125 @@ class energy_computation:
             """     
             
 
+        elif geo_opt_para_line['method'] == 'GAMESS':
+            if 'input' in geo_opt_para_line:
+                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
+                    gamess_input = geo_opt_para_line['input']
+                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
+                    gamess_input = os.path.join(current_directory, geo_opt_para_line['input'])
+                else:
+                    raise ValueError('GAMESS input template is not found from key path')
+                # Read the GAMESS template and inject coordinates
+                with open(start_xyz, 'r') as f1:
+                    lines = f1.readlines()
+                    natoms = int( lines[0] )
+                    elements = [ line.split()[0] for line in lines[2:2+natoms] ]
+                    # GAMESS $DATA needs: element, nuclear charge, x, y, z
+                    atomic_numbers = { 'H':1.0, 'He':2.0, 'Li':3.0, 'Be':4.0, 'B':5.0, 'C':6.0,
+                                       'N':7.0, 'O':8.0, 'F':9.0, 'Ne':10.0, 'Na':11.0, 'Mg':12.0,
+                                       'Al':13.0, 'Si':14.0, 'P':15.0, 'S':16.0, 'Cl':17.0, 'Ar':18.0,
+                                       'K':19.0, 'Ca':20.0, 'Sc':21.0, 'Ti':22.0, 'V':23.0, 'Cr':24.0,
+                                       'Mn':25.0, 'Fe':26.0, 'Co':27.0, 'Ni':28.0, 'Cu':29.0, 'Zn':30.0,
+                                       'Ga':31.0, 'Ge':32.0, 'As':33.0, 'Se':34.0, 'Br':35.0, 'Kr':36.0,
+                                       'Rb':37.0, 'Sr':38.0, 'Y':39.0, 'Zr':40.0, 'Nb':41.0, 'Mo':42.0,
+                                       'Tc':43.0, 'Ru':44.0, 'Rh':45.0, 'Pd':46.0, 'Ag':47.0, 'Cd':48.0,
+                                       'In':49.0, 'Sn':50.0, 'Sb':51.0, 'Te':52.0, 'I':53.0, 'Xe':54.0 }
+                    data_lines = []
+                    for line in lines[2:2+natoms]:
+                        parts = line.split()
+                        elem = parts[0]
+                        x, y, z = parts[1], parts[2], parts[3]
+                        znuc = atomic_numbers.get(elem, 0.0)
+                        data_lines.append(f' {elem}    {znuc:.1f}    {x}    {y}    {z}')
+                    content_xyz = '\n'.join(data_lines)
+
+                with open(gamess_input, 'r') as f2:
+                    content_gms = f2.read()
+                content_gms = content_gms.replace('{structure_info}', content_xyz)
+                with open('gamess_job.inp', 'w') as f3:
+                    f3.write(content_gms)
+
+                calculator_command_lines = calculator_command_lines.replace('{input_script}', 'gamess_job')
+                # Clean GAMESS scratch files from previous runs (GAMESS refuses to overwrite .dat files)
+                gamess_scratch_dir = os.path.expanduser('~/gamess/restart')
+                if os.path.isdir(gamess_scratch_dir):
+                    for ext in ['.dat', '.F05', '.F08', '.F10', '.trj', '.rst']:
+                        scratch_file = os.path.join(gamess_scratch_dir, f'gamess_job{ext}')
+                        if os.path.exists(scratch_file):
+                            os.remove(scratch_file)
+                try:
+                    subprocess.run(calculator_command_lines, shell=True, check=False, capture_output=True, text=True)
+                    energy = None
+                except:
+                    print( f' GAMESS failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
+                    energy = 7777777
+                    atoms = read(start_xyz)
+
+                if energy is None: # calculation done successfully
+                    # Parse GAMESS .log for energy and final geometry
+                    log_file = 'job.log'
+                    if not os.path.exists(log_file):
+                        log_file = 'gamess_job.log'
+                    try:
+                        with open(log_file, 'r') as f4:
+                            log_lines = f4.readlines()
+                            energy_vals = []
+                            coord_blocks = []
+                            in_eq_coords = False
+                            coord_lines = []
+                            for line_idx, line in enumerate(log_lines):
+                                # Match GAMESS energy lines: "FINAL RHF ENERGY IS", "FINAL UHF ENERGY IS",
+                                # "FINAL ROHF ENERGY IS", "FINAL MCSCF ENERGY IS", etc.
+                                if 'FINAL' in line and 'ENERGY IS' in line:
+                                    parts_e = line.split()
+                                    for k, tok in enumerate(parts_e):
+                                        if tok == 'IS':
+                                            energy_vals.append( float(parts_e[k+1]) )
+                                            break
+                                # Parse equilibrium geometry from optimization
+                                if 'EQUILIBRIUM GEOMETRY LOCATED' in line:
+                                    in_eq_coords = False
+                                    coord_lines = []
+                                if in_eq_coords:
+                                    parts = line.split()
+                                    if len(parts) == 5:
+                                        try:
+                                            float(parts[1])  # nuclear charge
+                                            coord_lines.append(parts)
+                                        except ValueError:
+                                            pass
+                                    elif len(parts) == 0 and len(coord_lines) > 0:
+                                        coord_blocks.append(coord_lines[:])
+                                        coord_lines = []
+                                        in_eq_coords = False
+                                if 'COORDINATES OF ALL ATOMS ARE (ANGS)' in line:
+                                    in_eq_coords = True
+                                    coord_lines = []
+
+                            if len(coord_lines) > 0:
+                                coord_blocks.append(coord_lines[:])
+
+                        if len(energy_vals) > 0:
+                            energy = energy_vals[-1]  # last energy in Hartrees
+                        else:
+                            energy = 7777777
+
+                        if len(coord_blocks) > 0:
+                            last_coords = coord_blocks[-1]
+                            elems = [c[0] for c in last_coords]
+                            pos = np.array([[float(c[2]), float(c[3]), float(c[4])] for c in last_coords])
+                            atoms = Atoms(elems, positions=pos)
+                        else:
+                            atoms = read(start_xyz)
+
+                    except Exception:
+                        print( f' GAMESS output parsing failed at {job_directory}.' )
+                        energy = 7777777
+                        atoms = read(start_xyz)
+
+            else:
+                raise NameError('GAMESS input is not provided by input key geo_opt_para_line')
+
         elif geo_opt_para_line['method'] == 'User':  # If a general way from user
             subprocess.run(calculator_command_lines, shell=True, check=True, capture_output=True, text=True)
             energy = subprocess.run(geo_opt_para_line['get_energy'], shell=True, check=True, capture_output=True, text=True) 
