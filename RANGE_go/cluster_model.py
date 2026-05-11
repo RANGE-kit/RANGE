@@ -56,18 +56,31 @@ class cluster_model:
                     atoms = read(mol) # if list item is file name
                 except:
                     raise ValueError( f"{mol} cannot be used as either a file or an ASE atoms. Check input." )
+                    
             if self.pbc_box is None:
                 atoms.set_pbc( (False,False,False) )
                 atoms.set_cell( (0,0,0) )
             else:
                 atoms.set_pbc( self.pbc_applied )
                 atoms.set_cell( self.pbc_box )
+                
+            # Assign atomic charge
+            if atoms.has('initial_charges'):
+                #print( 'Charge now:', atoms.get_initial_charges() )
+                pass
+            else:
+                atomic_chrages = np.zeros( len(atoms) )
+                atoms.set_initial_charges(atomic_chrages)
+                #print( 'Charge new:', atoms.get_initial_charges() )
+                
+            # Assign molecule name for future need
             if atoms.has('residuenames'):
                 pass
             else:  # Generate a random three-letter string as name
                 new_resname = [i for i in string.ascii_uppercase]
                 new_resname = ''.join( np.random.choice(new_resname, 3, replace=True) )
                 atoms.new_array('residuenames', [new_resname]*len(atoms), str)
+                
             self.molecules[i] = atoms
             
     # Translate a molecule (atoms) to center and rotate it by Euler angles (degrees)
@@ -358,7 +371,7 @@ class cluster_model:
         self.system_atoms = Atoms()
         for at in go_templates:
             self.system_atoms += at
-    
+                
         return go_templates, np.array(go_boundary), go_conversion_rule
     
     # Get bonds in the input system (to be used for bond constrains if needed)

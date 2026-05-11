@@ -10,12 +10,13 @@ import os
 from scipy.spatial import cKDTree
 
 from ase import Atoms
-from ase.optimize import BFGS
+from ase.optimize import BFGS, FIRE
 #from ase.io.trajectory import Trajectory
 from ase.io import read, write
 from ase.calculators.calculator import Calculator, all_changes
 from ase.neighborlist import NeighborList
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.filters import Filter
 
 import subprocess
 import shutil
@@ -31,10 +32,10 @@ from RANGE_go.input_output import get_CP2K_run_info, convert_xyz_to_lmps #, conv
 To replace the push apart function in previous versions, we use a rigid body optimizer
 that uses LJ to compute external DOF and freeze internal DOF
 """
-class RigidLJQ_calculator(Calculator):
+class LJQ_calculator(Calculator):
     implemented_properties = ['energy', 'forces']
 
-    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=2.0, 
+    def __init__(self, templates, charge=0, epsilon='UFF', sigma='UFF', cutoff=6.0, 
                  coulomb_const=14.3996, # eV·Å/e² (vacuum permittivity included)
                  **kwargs):
         """
@@ -48,9 +49,9 @@ class RigidLJQ_calculator(Calculator):
         """
         super().__init__(**kwargs)
         self.cutoff = cutoff
-        self.lower_cutoff = 0.3 # To avoid too close atoms
+        self.lower_cutoff = 0.2 # To avoid too close atoms
         self.coulomb_const = coulomb_const
-        self.precision = np.float32
+        self.precision = np.float64
 
         # Create lookup for quick atom-to-molecule membership check
         natom = 0 # index pointer
@@ -65,6 +66,8 @@ class RigidLJQ_calculator(Calculator):
                 atom_index_in_this_mol.append( natom )
                 natom += 1
             self.mol_to_atom[i] = atom_index_in_this_mol
+        # precompute molecule membership as array, filter in numpy
+        self.atom_mol_ids = np.array([self.atom_to_mol[k] for k in range(natom)])  
                 
         # Make sure LJ parameter is atom-specific
         if isinstance(epsilon, (int, float)): # same value for all 
@@ -88,47 +91,55 @@ class RigidLJQ_calculator(Calculator):
         self.sigma = np.array(sigma, dtype=self.precision )
 
         # Atomic charge is also atom-specific
-        if isinstance(charge, (list,np.ndarray)):
+        if isinstance(charge, (list, np.ndarray)):
             if len(charge)!=natom: 
                 raise ValueError('Charge and molecules should have the same length: ', len(charge), natom)
             else:
                 self.charge = np.array(charge, dtype=self.precision)
         elif isinstance(charge, (int, float)):
-            self.charge = np.array([charge]*natom, dtype=self.precision)
+            self.charge = np.array([charge]*natom, dtype=self.precision)  # same charge for all atoms, i.e. 0
+        elif charge=='from_structure_file':
+            charge = []
+            for i, mol in enumerate(templates):
+                charge.extend( mol.get_initial_charges() )
+            self.charge = np.array( charge )
         else:
             raise ValueError('Charge is not assigned properly')
+        print( 'Net charge of the system: ', np.sum(self.charge) )
             
         # Build neighbor list once
-        self.nl = NeighborList([self.cutoff]*natom, self_interaction=False, bothways=True)
+        self.nl = NeighborList([self.cutoff/2]*natom, self_interaction=False, bothways=True)
         
-
+    """ ---------- No longer activated. Keep it here for reference only ----------
     def convert_force_to_rigid(self, all_positions, all_forces, dict_mol_to_atom):
         new_forces = np.zeros_like(all_forces).astype(self.precision)
+        
         for mol in dict_mol_to_atom.values():
-            pos = all_positions[mol]
-            frc = all_forces[mol]
-            pos_center  = np.mean(pos, axis=0)
-            total_force = np.sum(frc, axis=0) 
+            pos = all_positions[mol]    # (N_atoms, 3)
+            frc = all_forces[mol]       # (N_atoms, 3)
+            N   = len(mol)
 
-            """
-            r_rel = pos - pos_center  # Dsiplacement from center
-            torque = np.sum(np.cross(r_rel, frc), axis=0)  # Torque
-            # Inertia tensor
-            Inertia = np.zeros((3, 3))
-            for i in range(len(mol)):
-                Inertia += (np.dot(r_rel[i], r_rel[i]) * np.identity(3) - np.outer(r_rel[i], r_rel[i]))
-            # Compute angular velocity (safe pseudo-inverse)
-            omega = np.linalg.pinv(Inertia) @ torque
-            """
+            # --- translation part ---
+            pos_center  = np.mean(pos, axis=0) # geometric center
+            total_force = np.sum(frc, axis=0)   # net force --> COM translation
+            f_trans = total_force/N             # distributed equally
+            # --- rotation part ---
+            r_rel  = pos - pos_center   # (N_atoms, 3)
+            torque = np.cross(r_rel, frc).sum(axis=0)  # τ = Σ rᵢ × fᵢ
+            # Inertia tensor  I = Σ (|rᵢ|²·E₃ - rᵢ⊗rᵢ)
+            # Vectorized: avoids Python loop over atoms
+            r2      = np.einsum('ij,ij->i', r_rel, r_rel)          # (N_atoms,)
+            Inertia = (np.sum(r2) * np.eye(3) - r_rel.T @ r_rel)   # (3, 3)
+            # Angular acceleration α = I⁺ · τ  (pinv handles linear/single-atom cases)
+            alpha = np.linalg.pinv(Inertia) @ torque   # (3,)
+            # Rotational force on each atom: fᵢ_rot = α × rᵢ_rel
+            f_rot = np.cross(alpha, r_rel)             # (N_atoms, 3)
             
-            # Reconstruct rigid-body forces
-            f_trans = total_force/len(mol)
-            new_forces[mol] = f_trans
-            #for i, atom_idx in enumerate(mol):
-            #    f_trans = total_force/len(mol)
-            #    #f_rot = np.cross(omega, r_rel[i])
-            #    new_forces[atom_idx] = f_trans #+ f_rot
+            # --- reconstruct rigid-body forces by combining trans and rot---
+            new_forces[mol] = f_trans #+ f_rot
+            
         return new_forces        
+    """
     
     def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
         super().calculate(atoms, properties, system_changes)
@@ -141,16 +152,20 @@ class RigidLJQ_calculator(Calculator):
         self.nl.update(atoms)
 
         # Prepare arrays for vectorization
+        cell = atoms.get_cell()
         i_list, j_list, rij_list = [], [], []
         for i in range( len(positions) ):
             indices, offsets = self.nl.get_neighbors(i)
-            for j, offset in zip(indices, offsets):
-                if j <= i or self.atom_to_mol[i] == self.atom_to_mol[j]:  # avoid double counting, or intramolecule force
-                    continue
-                i_list.append(i)
-                j_list.append(j)
-                rij = positions[j] + np.dot(offset, atoms.get_cell()) - positions[i]
-                rij_list.append(rij)
+            # Filter: only i<j and different molecules 
+            # Avoid double counting, or intramolecule force
+            mask = (indices > i) & (self.atom_mol_ids[indices] != self.atom_mol_ids[i])
+            js = indices[mask]
+            offs = offsets[mask]
+            if len(js)>0:
+                i_list.extend( [i] * len(js) )
+                j_list.extend( js.tolist() )
+                rij_vecs = positions[js] + np.dot(offs, cell) - positions[i]
+                rij_list.extend( rij_vecs.tolist() ) # Add rij
 
         if len(i_list) == 0:
             self.results['energy'] = 0.0
@@ -162,27 +177,45 @@ class RigidLJQ_calculator(Calculator):
         rij_list = np.array( rij_list, dtype=self.precision )
 
         # Distances
-        r = np.linalg.norm(rij_list, axis=1)
-        r = np.maximum(r, self.lower_cutoff)  # avoid zero division by element-pair comparison
+        r_raw = np.linalg.norm(rij_list, axis=1)
+        # For near-zero distances, add random direction instead of zero vector
+        near_zero = r_raw < 1e-6
+        if np.any(near_zero):
+            rij_list[near_zero] = np.random.randn(np.sum(near_zero), 3) * 1e-3
+            r_raw = np.linalg.norm(rij_list, axis=1)
+        r_hat = rij_list / np.maximum(r_raw, 1e-10)[:, None]   # safe unit vector
+        r = np.maximum(r_raw, self.lower_cutoff)  # avoid zero division by element-pair comparison
 
         # LJ parameters
         sigma_ij = ( self.sigma[i_list] + self.sigma[j_list] ) / 2
         eps_ij = np.sqrt( self.epsilon[i_list] * self.epsilon[j_list] )
 
+        
         # LJ energy & forces (vectorized)
         sr6 = (sigma_ij / r) ** 6
         sr12 = sr6 * sr6
         e_cutoff = 4 * eps_ij * ((sigma_ij / self.cutoff) ** 12 - (sigma_ij / self.cutoff) ** 6)
-        e_lj = 4 * eps_ij * (sr12 - sr6) - e_cutoff
-        f_lj = -24 * eps_ij / r * (2 * sr12 - sr6)
+        e_lj = 4 * eps_ij * (sr12 - sr6) - e_cutoff   # accumulate in float64 for higher accuracy    
+        f_lj = -24 * eps_ij / r * (2 * sr12 - sr6)  # note the minus sign
+        """
+        # WCA potential (Weeks-Chandler-Andersen)
+        r_wca = (2 ** (1/6)) * sigma_ij
+        repulsive = r < r_wca       # Only repulsive pairs (r < r_wca)
+        sr6  = np.where(repulsive, (sigma_ij / r) ** 6, 0.0)
+        sr12 = sr6 * sr6
+        # WCA energy: shift by +eps so U(r_wca) = 0 exactly
+        e_lj = np.where(repulsive, 4 * eps_ij * (sr12 - sr6) + eps_ij, 0.0)
+        # WCA force (same formula as LJ, zero beyond r_wca)
+        f_lj = np.where(repulsive, -24 * eps_ij / r * (2 * sr12 - sr6), 0.0)
+        """
 
         # Coulomb energy & forces (vectorized)
         qq = self.charge[i_list] * self.charge[j_list]  # q1*q2
-        e_coul = self.coulomb_const * qq / r
-        f_coul = self.coulomb_const * qq / (r ** 2)
+        e_coul = self.coulomb_const * qq / r  # accumulate in float64 for higher accuracy    
+        f_coul = -self.coulomb_const * qq / (r ** 2)  # note the minus sign
 
         # Total forces per pair
-        f_total = (f_lj + f_coul)[:, None] * (rij_list / r[:, None])
+        f_total = (f_lj + f_coul)[:, None] * r_hat
 
         # Accumulate forces and energy
         np.add.at(forces, i_list, f_total)
@@ -190,12 +223,71 @@ class RigidLJQ_calculator(Calculator):
         energy = np.sum(e_lj + e_coul)
 
         # Convert to rigid forces per molecule
-        forces = self.convert_force_to_rigid(positions, forces, self.mol_to_atom)
+        #forces = self.convert_force_to_rigid(positions, forces, self.mol_to_atom)
 
         self.results['energy'] = float(energy)
-        self.results['forces'] = forces.astype(np.float64) # ASE requires
+        self.results['forces'] = forces.astype(np.float64)  # ASE requires 
+    
 
+class RigidBody_filter(Filter):
+    def __init__(self, atoms, templates):
+        Filter.__init__(self, atoms, indices=list(range(len(atoms))))
+        natom     = 0
+        molecules = []
+        for mol in templates:
+            n = len(mol)
+            molecules.append(np.arange(natom, natom + n))
+            natom += n
+        self.molecules  = molecules
+        self.n_mol      = len(molecules)
+        self._accum_rot = np.zeros((self.n_mol, 3))
 
+    def get_positions(self):
+        pos  = self.atoms.get_positions()
+        coms = np.array([pos[m].mean(axis=0) for m in self.molecules])
+        return np.vstack([coms, self._accum_rot])  # (2*N_mol, 3)
+
+    def set_positions(self, new_pos, **kwargs):
+        new_pos  = new_pos.reshape(2 * self.n_mol, 3)
+        new_coms = new_pos[:self.n_mol]             # (N_mol, 3)
+        new_rots = new_pos[self.n_mol:]             # (N_mol, 3)
+        pos      = self.atoms.get_positions()
+        for i, m in enumerate(self.molecules):
+            delta_rot = new_rots[i] - self._accum_rot[i]
+            angle     = np.linalg.norm(delta_rot)
+            old_com   = pos[m].mean(axis=0)
+            if angle > 1e-12:
+                axis = delta_rot / angle
+                c, s = np.cos(angle), np.sin(angle)
+                t    = 1 - c
+                x, y, z = axis
+                R = np.array([[t*x*x+c,   t*x*y-s*z, t*x*z+s*y],
+                              [t*x*y+s*z, t*y*y+c,   t*y*z-s*x],
+                              [t*x*z-s*y, t*y*z+s*x, t*z*z+c  ]])
+                pos[m] = (pos[m] - old_com) @ R.T + old_com
+            pos[m]            += new_coms[i] - pos[m].mean(axis=0)
+            self._accum_rot[i] = new_rots[i]
+        self.atoms.set_positions(pos)
+
+    def get_forces(self):
+        raw = self.atoms.get_forces()
+        pos = self.atoms.get_positions()
+        net_forces = np.zeros((self.n_mol, 3))
+        torques    = np.zeros((self.n_mol, 3))
+        for i, m in enumerate(self.molecules):
+            com           = pos[m].mean(axis=0)
+            r_rel         = pos[m] - com
+            net_forces[i] = raw[m].sum(axis=0)
+            torques[i]    = np.cross(r_rel, raw[m]).sum(axis=0)
+        return np.vstack([net_forces, torques])   # (2*N_mol, 3)
+
+    def get_potential_energy(self, force_consistent=True):
+        return self.atoms.get_potential_energy(force_consistent=force_consistent)
+
+    def __len__(self):
+        return 2 * self.n_mol
+    
+    
 class energy_computation:
     """
     This contains the functionalities of computing the energy of a molecular structure
@@ -231,11 +323,10 @@ class energy_computation:
                 #self.coarse_calc_cutoff = coarse_calc_para['coarse_calc_cutoff']
             except:
                 raise ValueError('Coarse optimization parameter is missing or incorrect')
-            self.coarse_calculator = RigidLJQ_calculator(self.templates, 
+            self.coarse_calculator =      LJQ_calculator(self.templates, 
                                                          charge = self.coarse_calc_chg, 
                                                          epsilon= self.coarse_calc_eps, 
                                                          sigma  = self.coarse_calc_sig,
-                                                         #cutoff = self.coarse_calc_cutoff,
                                                          )
         # For cell size and PBC condition:
         self.Global_cell_size = self.templates[0].get_cell() # e.g., (0,0,0) or (10,20,0) or (10,10,10) etc.
@@ -486,21 +577,23 @@ class energy_computation:
         # if use coarse calc to pre-relax
         if self.if_coarse_calc:
             atoms.calc = self.coarse_calculator 
-            if self.save_output_level == 'Full':
-                dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
-                dyn = BFGS(atoms, logfile=dyn_log ) 
-            elif self.save_output_level == 'Simple':
-                dyn = BFGS(atoms, logfile=None)
-            else:
-                raise ValueError('Saving output level keyword is not supported')
-                
             if self.coarse_calc_constraint is not None:
                 atoms.set_constraint( self.coarse_calc_constraint )
+            # rigid filter
+            rigid_atoms = RigidBody_filter(atoms, self.templates)
+            
+            if self.save_output_level == 'Full':
+                dyn_log = os.path.join(new_cumpute_directory, 'coarse-opt.log')
+                dyn = FIRE(rigid_atoms, maxstep=0.5, logfile=dyn_log )
+            elif self.save_output_level == 'Simple':
+                dyn = FIRE(rigid_atoms, maxstep=0.5, logfile=None)
+            else:
+                raise ValueError('Saving output level keyword is not supported')
                 
             try:
                 dyn.run( fmax=self.coarse_calc_fmax, steps=self.coarse_calc_step )
             except:
-                print(computing_id, 'Coarse optimization was not successful. Skipped to fine optimization.')
+                print(computing_id, 'Coarse optimization was not successful. Moving to fine optimization.')
                 
             if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
                 pass
