@@ -627,6 +627,8 @@ class energy_computation:
                     atoms.set_constraint( self.geo_opt_para['ase_constraint'] )
                     if 'Dual_stage_optimization' in self.geo_opt_para: 
                         dual_opt = self.geo_opt_para['Dual_stage_optimization']
+                else:
+                    atoms.set_constraint()  # Remove constraints
 
                 try:                    
                     dyn.run( fmax=fmax, steps=steps )
@@ -638,19 +640,19 @@ class energy_computation:
                     vec = self.cluster_to_vector( atoms, vec )    # Update vec after fine opt
                 except:
                     #print('Cannot optimize properly to get energy: ', computing_id)
-                    energy = 5555555 # Cannot optimize properly to get energy
+                    energy = 100001 # Error #1: Cannot optimize structure properly to get energy
                     # And vec is not changed
             else:
                 try:
-                    energy = atoms.get_potential_energy()
+                    energy = atoms.get_potential_energy() # Singlepoint
                 except:
-                    energy = 6666666 # Cannot compute energy.
+                    energy = 100002 # Error #2: Cannot compute singlepoint energy.
 
         elif self.calculator_type == 'external': # To use external command
             atoms, energy = self.call_external_calculation(atoms, new_cumpute_directory, self.calculator , self.geo_opt_para)
             vec = self.cluster_to_vector( atoms, vec )  
             
-        elif self.calculator_type == 'structural': # For structure generation
+        elif self.calculator_type == 'structural': # For structure generation only
             if self.if_coarse_calc:
                 energy = atoms.get_potential_energy()
             else:
@@ -749,7 +751,7 @@ class energy_computation:
                 else:
                     energy = 1e12 # Optimization done but no energy written. This should not happen.
             else:
-                energy = 7777777
+                energy = 100001 # Error #1
             
             # Get the final structure
             if os.path.exists( 'xtbopt.xyz' ):
@@ -788,7 +790,7 @@ class energy_computation:
                     atoms = read( 'data-out.xyz' )
                 except subprocess.CalledProcessError as e:
                     print( 'DFTB+ Error: ', job_directory , e.stderr)
-                    energy = 7777777
+                    energy = 100001 # Error #1
                     atoms = read(start_xyz)
             else:
                 raise NameError('DFTB+ input is not provided by input key')            
@@ -818,7 +820,7 @@ class energy_computation:
                     
                 except subprocess.CalledProcessError as e:
                     print( job_directory , e.stderr)
-                    energy = 7777777
+                    energy = 100001 # Error #1
                     atoms = read(start_xyz)
 
             else:
@@ -850,7 +852,7 @@ class energy_computation:
                     energy = None
                 except:
                     print( f' Gaussian failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
-                    energy = 7777777
+                    energy = 100001 # Error #1
                     atoms = read(start_xyz)
                 
                 if energy is None: # calculation done successfully
@@ -894,7 +896,7 @@ class energy_computation:
                     atoms = read( 'input-ORCA.xyz' )
                 except subprocess.CalledProcessError as e:
                     print( 'ORCA Error: ', job_directory , e.stderr)
-                    energy = 7777777
+                    energy = 100001 # Error #1
                     atoms = read(start_xyz)
             else:
                 raise NameError('ORCA input is not provided by input key')
@@ -924,7 +926,7 @@ class energy_computation:
                     atoms = read( 'data-out.lammps' )
                 except subprocess.CalledProcessError as e:
                     print( 'LAMMPS Error: ', job_directory , e.stderr)
-                    energy = 7777777
+                    energy = 100001 # Error #1
                     atoms = read(start_xyz)
                     
         elif geo_opt_para_line['method'] == 'GROMACS':
@@ -1010,7 +1012,7 @@ class energy_computation:
                     energy = None
                 except:
                     print( f' GAMESS failed. Check detail at {job_directory}. Moving on with a fake high energy.' )
-                    energy = 7777777
+                    energy = 100001 # Error #1
                     atoms = read(start_xyz)
 
                 if energy is None: # calculation done successfully
@@ -1060,7 +1062,7 @@ class energy_computation:
                         if len(energy_vals) > 0:
                             energy = energy_vals[-1]  # last energy in Hartrees
                         else:
-                            energy = 7777777
+                            energy = 100003 # Error #3 Cannot get energy from output
 
                         if len(coord_blocks) > 0:
                             last_coords = coord_blocks[-1]
@@ -1072,7 +1074,7 @@ class energy_computation:
 
                     except Exception:
                         print( f' GAMESS output parsing failed at {job_directory}.' )
-                        energy = 7777777
+                        energy = 100003 # Error #3
                         atoms = read(start_xyz)
 
             else:

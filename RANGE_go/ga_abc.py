@@ -272,7 +272,7 @@ class GA_ABC():
         return terminate_early
         
     def summarize_iteration(self, iteration_count, iteration_time, iteration_generation):
-        output_line = f"Iteration: {iteration_count:5d} | best Y so far: {np.round(self.best_y,6):16.6f} | Lifetime: {self.best_trial:5d}"
+        output_line = f"Iteration: {iteration_count:5d}" # | best Y so far: {np.round(self.best_y,6):16.6f} | Lifetime: {self.best_trial:5d}"
         output_line += f" | Total X: {self.global_structure_index:9d}"
         output_line += f" | Total time cost(s): {round(iteration_time,3):16.2f} | Cost per X(s): {round(iteration_time/(iteration_generation),3):8.2f}"
         return  output_line
@@ -333,7 +333,8 @@ class GA_ABC():
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        #print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        print( f'--- End of Iteration {it:5d}' )
         
                 if self.early_stop(self.early_stop_parameter):
                     break
@@ -366,7 +367,8 @@ class GA_ABC():
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        #print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        print( f'--- End of Iteration {it:5d}' )
         
                 if self.early_stop(self.early_stop_parameter):
                     break
@@ -383,7 +385,8 @@ class GA_ABC():
                         output_line = self.summarize_iteration( it, time.time() - start_time, self.global_structure_index - self.previous_pool_size)
                         with open("log_of_RANGE.log", 'a') as f1:
                             f1.write( output_line+'\n' )
-                        print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        #print(f'Dynamic info at Iteration {it:5d}: best_Y={self.best_y:16.6} Life={self.best_trial:5d} Gen_size={self.global_structure_index:5d} Ratio={np.round(self.best_trial/self.global_structure_index,2)}')
+                        print( f'--- End of Iteration {it:5d}' )
                 
                 if self.early_stop(self.early_stop_parameter):
                     break
