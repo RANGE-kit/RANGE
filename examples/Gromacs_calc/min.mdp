@@ -1,0 +1,44 @@
+; ── Integrator ────────────────────────────────────────────────────────────────
+integrator               = steep
+emtol                    = 10.0
+emstep                   = 0.01
+nsteps                   = 50000
+
+; ── Output ────────────────────────────────────────────────────────────────────
+nstxout                  = 0            ; no coordinates
+nstvout                  = 0            ; no velocities
+nstfout                  = 0            ; no forces
+nstlog                   = 100000            ; no log output
+nstenergy                = 0         ; energy file written every 100 steps
+nstcalcenergy            = 1            ; calculate energy every XX steps
+nstxout-compressed       = 0            ; no xtc trajectory
+
+; ── Neighbor searching ────────────────────────────────────────────────────────
+cutoff-scheme            = Verlet
+verlet-buffer-tolerance  = -1          ; disable auto rlist for EM
+rlist                    = 0.9
+nstlist                  = 10
+pbc                      = xyz
+
+; ── Electrostatics ────────────────────────────────────────────────────────────
+coulombtype              = PME
+rcoulomb                 = 0.9
+pme_order                = 4
+ewald_rtol               = 1e-5
+fourierspacing           = 0.12
+
+; ── VdW ───────────────────────────────────────────────────────────────────────
+vdw-type                 = Cut-off
+rvdw                     = 0.9
+DispCorr                 = EnerPres
+
+; ── Constraints — required for TIP4P-Ew virtual site ─────────────────────────
+constraints              = h-bonds
+constraint-algorithm     = LINCS
+lincs-order              = 4
+lincs-iter               = 1
+
+; ── No thermostat/barostat for minimization ───────────────────────────────────
+tcoupl                   = no
+pcoupl                   = no
+gen_vel                  = no

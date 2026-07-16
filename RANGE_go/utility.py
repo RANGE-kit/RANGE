@@ -142,11 +142,14 @@ def select_max_diversity(X_vec, Y_ener, num_of_candidates):
     return sorted_idx[selected_indices]
 
 def check_structure(atoms, energy, input_tuple):
-    # Always distance check
+    # Force pass without no check
+    if input_tuple == False:
+        return energy
+    # Always distance check if not forced
     dist = atoms.get_all_distances(mic=True, vector=False)
     dist = dist[np.triu_indices(dist.shape[0], k=1)] # only upper triangle without diagonal values
     if np.amin(dist)<0.6: # bad distance. collapse.
-        energy = 2E9 # bad structure
+        energy = 900001 # bad structure
     elif input_tuple is not None:
         # input_tuple must be a tuple of size 2: 0=cluster, 1=a list of molecule id
         cluster = input_tuple[0] # cluster class to get templates, internal_connectivity and global_molecule_index
@@ -166,10 +169,10 @@ def check_structure(atoms, energy, input_tuple):
                     connect = ngb_list.get_connectivity_matrix(sparse=False)
                     #connect = np.triu(connect, k=1).flatten() # upper triangle without diagnol, into 1d array [1,0,0,1,0,...]
                     if not np.array_equal(connect, connect_ref):
-                        energy = 2E8
+                        energy = 900002
                         break
                 except:
-                    energy = 2E8
+                    energy = 900003
     return energy
 
 def structure_difference(at1, at2, pbc=True):

@@ -25,7 +25,7 @@ import time
 
 from RANGE_go.utility import get_UFF_para, ellipsoidal_to_cartesian_deg, cartesian_to_ellipsoidal_deg, rotate_atoms_by_euler, get_translation_and_euler_from_positions
 from RANGE_go.utility import check_structure
-from RANGE_go.input_output import get_CP2K_run_info, convert_xyz_to_lmps #, convert_xyz_to_gro
+from RANGE_go.input_output import get_CP2K_run_info, convert_xyz_to_lmps, convert_xyz_to_gro
 
 
 """
@@ -572,7 +572,7 @@ class energy_computation:
             new_cumpute_directory = os.path.join(save_output_directory,computing_id)
             os.makedirs( new_cumpute_directory, exist_ok=True)   
             # Log the starting structure
-            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms, format='xyz' )
+            write( os.path.join(new_cumpute_directory, 'start.xyz'), atoms, format='extxyz' )
         
         # if use coarse calc to pre-relax
         if self.if_coarse_calc:
@@ -598,7 +598,7 @@ class energy_computation:
             if self.save_output_level == 'Simple' and self.calculator_type == 'ase':
                 pass
             elif self.calculator_type != 'structural':
-                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms, format='xyz') 
+                write( os.path.join(new_cumpute_directory, 'coarse_final.xyz'), atoms, format='extxyz') 
             vec = self.cluster_to_vector( atoms, vec ) # update vec after coarse opt
                           
         # The fine optimization
@@ -930,36 +930,50 @@ class energy_computation:
                     atoms = read(start_xyz)
                     
         elif geo_opt_para_line['method'] == 'GROMACS':
-            raise ValueError('GROMACS is disabled due to compatibility issue. Will reopen after further correction')
-            """
-            if 'input' in geo_opt_para_line: # Check if GMX input is ready
-                if os.path.exists( geo_opt_para_line['input'] ): # If we provide absolute path
-                    GMX_input = geo_opt_para_line['input']
-                elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['input']) ) :# Check job root path
-                    GMX_input = os.path.join(current_directory, geo_opt_para_line['input'])
-                else:
-                    raise ValueError('GROMACS input is not found from key path') 
-                # Run
-                convert_xyz_to_gro(start_xyz, 'data-in.gro')
-                calculator_command_lines = calculator_command_lines.replace('{input_script}', GMX_input)
-                try:
-                    result = subprocess.run(calculator_command_lines, 
-                                            shell=True, check=False, 
-                                            capture_output=True, text=True
-                                            )
-                    # Now get the energy from output
-                    with open('job.log','r') as f1:
-                        energy = [line.split() for line in f1.readlines() if len(line.split())==4 ]
-                        energy = [e for e in energy if e[0]=='Potential' and e[1]=='Energy' ]
-                    energy = float(energy[-1][3]) # last energy. Value is the last value
-                    # Get the final structure 
-                    atoms = read( 'data-out.gro' )
-                except subprocess.CalledProcessError as e:
-                    print( 'GROMACS Error: ', job_directory , e.stderr)
-                    energy = 7777777
-                    atoms = read(start_xyz)   
-            """     
+            # For gromacs, we need (1) .mdp file (2) topo file
+            keys_needed = ['mdp_file','topo_file']
+            missing = [k for k in keys_needed if k not in geo_opt_para_line]
+            if missing:    
+                raise KeyError(f"Missing input keys: {missing}")
+
+            # Get mdp file
+            if os.path.exists( geo_opt_para_line['mdp_file'] ): # If we provide absolute path
+                mdp_input = geo_opt_para_line['mdp_file']
+            elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['mdp_file']) ) :# Check job root path
+                mdp_input = os.path.join(current_directory, geo_opt_para_line['mdp_file'])
+            else:
+                raise ValueError('GROMACS mdp is not found from key path') 
+            # Get topo file
+            if os.path.exists( geo_opt_para_line['topo_file'] ): # If we provide absolute path
+                top_input = geo_opt_para_line['topo_file']
+            elif os.path.exists( os.path.join(current_directory, geo_opt_para_line['topo_file']) ) :# Check job root path
+                top_input = os.path.join(current_directory, geo_opt_para_line['topo_file'])
+            else:
+                raise ValueError('GROMACS topo is not found from key path') 
+
+            # Prepare input structure
+            convert_xyz_to_gro(start_xyz, 'data-in.gro',)
+            # Prepare input command. Typically: 
+            # gmx_mpi grompp -f  min.mdp  -c data-in.gro  -p topo.top -o em.tpr  &&  gmx_mpi mdrun -v -deffnm em -ntomp 32
+            calculator_command_lines = calculator_command_lines.replace('{input_script}', mdp_input)
+            calculator_command_lines = calculator_command_lines.replace('{input_topo}', top_input)
             
+            # Run
+            try:
+                result = subprocess.run(calculator_command_lines, shell=True, check=False, capture_output=True, text=True )
+                energy = [ line for line in result.stderr.split('\n')[-30:] if 'Potential Energy' in line ]
+            except subprocess.CalledProcessError as e:
+                print( 'GROMACS Error: ', job_directory , e.stderr)
+                energy = 100001
+                atoms = read(start_xyz)
+
+            # Get final energy and output
+            if len(energy)==1:
+                energy = float( energy[0].split()[-1] )
+                atoms = read('em.gro')
+            else:
+                energy = 100002
+                toms = read('data-in.gro')
 
         elif geo_opt_para_line['method'] == 'GAMESS':
             if 'input' in geo_opt_para_line:

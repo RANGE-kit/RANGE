@@ -149,8 +149,8 @@ def convert_xyz_to_lmps(input_xyz, output_lammps):
     
 def convert_xyz_to_gro(input_xyz, output_gro):
     atoms = read(input_xyz)
-    write(output_gro,atoms)
-
+    atoms.arrays['residuenumbers'] = atoms.arrays['residuenumbers'].astype(int)
+    write( output_gro, atoms )
 
 def save_energy_summary(output_file='energy_summary.log', 
                         db_path='structure_pool.db', 

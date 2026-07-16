@@ -1,0 +1,13 @@
+#include "/global/homes/z/zdf/software/my_oplsaa.ff/forcefield.itp"
+#include "/global/homes/z/zdf/software/my_oplsaa.ff/tip4pew.itp"
+#include "/global/homes/z/zdf/software/my_oplsaa.ff/no3-.itp"
+#include "/global/homes/z/zdf/software/my_oplsaa.ff/oh-.itp"
+#include "/global/homes/z/zdf/software/my_oplsaa.ff/ions.itp"
+[ system ]
+sim
+[ molecules ]
+SOL  233
+ND3  6
+NO3  6
+OH   12
+SOL  17

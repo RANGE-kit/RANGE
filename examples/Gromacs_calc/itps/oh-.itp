@@ -1,0 +1,14 @@
+[ moleculetype ]
+; name  nrexcl  
+OH      2
+
+[ atoms ]
+; id  type  resnr  resname  atom  cgnr  charge   mass
+1     O_oh  1      OH       O     1    -1.300    15.99940
+2     H_oh  1      OH       H     1     0.300     1.00800
+; total charge = -1.000, from J Table 2 of. Phys. Chem. B 2022, 126, 45, 9376–9387 https://doi.org/10.1021/acs.jpcb.2c06381
+
+[ constraints ]
+; ai  aj  funct  b0(nm)    — treat as rigid bond
+1     2   1      0.098
+
