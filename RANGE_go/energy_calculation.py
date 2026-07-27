@@ -457,7 +457,7 @@ class energy_computation:
         cluster.new_array('residuenumbers', resid_of_placed, str)
         
         # To support vaccancy function
-        #del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
+        del cluster[[atom.index for atom in cluster if atom.symbol=='X']]
         
         # Always add cell, even if not PBC
         cluster.set_pbc( self.Global_cell_condition )
@@ -553,7 +553,7 @@ class energy_computation:
                 vec_new += [surf_idx, x1, x2, distance, angle_deg, 0]
                 
             elif self.go_conversion_rule[i][0]=='replace':  # Replace function needs no revision
-                vec_new += list(vec[6*i : 6*i+3])
+                vec_new += list(vec[6*i : 6*i+6])
             else:
                 raise ValueError(f'go_conversion_rule has a wrong keyword: {self.go_conversion_rule[i][0]}')
 
