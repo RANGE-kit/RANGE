@@ -17,7 +17,7 @@ pip install .
 
 ## Usage
 
-If you are interested in using this tool, we would appreciate it if you could inform us. This information is collected solely for usage tracking purposes, to help us better understand the adoption and usability of the code. Usage examples are provided in the "Examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. The Jupyter Notebook structure_generation.ipynb provides additional simple cases. Examples using different calculators are provided in different folders.
+Usage examples are provided in the "Examples" directory. The "input_detailed_example.py" provides additional explanation of keywords. The Jupyter Notebook structure_generation.ipynb provides additional simple cases. Examples using different calculators are provided in different folders.
 
 To breifly summarize, here are the minimal steps to setup a RANGE search using an ASE calculator to build a copper cluster on a barium titanate surface:
 
@@ -112,7 +112,9 @@ all_X_vec, all_Y, all_name = opt.run(print_interval=1, if_return_results=True)
 
 1. Jarngal, Princy, et al. "Protonation dynamics of confined ethanol–water mixtures in H-ZSM-5 from machine learning-driven metadynamics." Journal of Catalysis (2025): 116658.
 
+2. Gao, Jun, et al. "In situ molecular imaging of ion clusters reveals the acid gas capture capacity and mechanism of water-lean ionic liquids." Carbon Capture Science & Technology (2026): 100622.
+
 ## Acknowledgment
 
-This work is supported by the U.S. Department of Energy, Office of Science, Office of Basic Energy Sciences, Chemical Sciences, Geosciences, and Biosciences Division, Catalysis Science Program, under Grant No. ERKCC96.
+This work is supported by the U.S. Department of Energy, Office of Science, Office of Basic Energy Sciences, Chemical Sciences, Geosciences, and Biosciences Division, Catalysis Science Program.
 
